@@ -5,8 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from bot.web.api import create_app
-from tests.test_web_api import FakeWeather, H, client, fresh_forecast, headers_for, make_config  # noqa: F401
+from tests.test_web_api import FakeWeather, H, client, fresh_forecast, headers_for, make_app, make_config  # noqa: F401
 
 
 def post(client, path, body=None, headers=H):
@@ -163,7 +162,7 @@ async def test_checklist_hints_survive_weather_failure(db):
             raise WeatherError("нет сети")
 
     await db.add_place(1, "Озеро", 45.0, 38.9)
-    app = create_app(make_config(), db, None, Broken())
+    app = await make_app(make_config(), db, Broken())
     async with TestClient(TestServer(app)) as c:
         resp = await c.get("/api/checklist", headers=H)
         assert resp.status == 200 and (await resp.json())["hints"] == []
@@ -178,7 +177,7 @@ async def test_checklist_hints_rain(db):
             return raw
 
     await db.set_location(1, 45.0, 38.9, "Краснодар")
-    app = create_app(make_config(), db, None, Rainy())
+    app = await make_app(make_config(), db, Rainy())
     async with TestClient(TestServer(app)) as c:
         data = await (await c.get("/api/checklist", headers=H)).json()
         assert any("дождь" in h.lower() for h in data["hints"])
@@ -327,7 +326,7 @@ async def test_journal_is_per_user(client):
 
 async def test_journal_date_uses_user_timezone(db):
     """«Сегодня» считается по часовому поясу пользователя: у Камчатки (UTC+12) уже завтрашняя дата по UTC."""
-    app = create_app(make_config(), db, None, FakeWeather())
+    app = await make_app(make_config(), db, FakeWeather())
     async with TestClient(TestServer(app)) as c:
         await post(c, "/api/settings", {"timezone": "Asia/Kamchatka"})
         kam_today = (datetime.now(timezone.utc) + timedelta(hours=12)).date()
@@ -443,7 +442,7 @@ async def test_activity_hare_porosha_from_overnight_snow(db):
             return raw
 
     await db.add_place(1, "Поле", 45.0, 38.9)
-    app = create_app(make_config(), db, None, Snowy())
+    app = await make_app(make_config(), db, Snowy())
     async with TestClient(TestServer(app)) as c:
         data = await (await c.get("/api/activity", headers=H)).json()
         hare = next(g for g in data["days"][1]["activity"] if g["group"] == "hare")

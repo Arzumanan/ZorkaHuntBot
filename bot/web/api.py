@@ -7,6 +7,7 @@ import re
 import aiohttp
 from aiohttp import web
 
+from .. import policy
 from ..config import BASE_DIR, Config
 from ..db import Database
 from ..services import weather as weather_service
@@ -23,13 +24,17 @@ log = logging.getLogger(__name__)
 
 WEBAPP_DIR = BASE_DIR / "webapp"
 INIT_HEADER = "X-Telegram-Init-Data"
+PUBLIC_API = {"/api/policy"}      # без входа через Telegram: текст политики должен читаться всегда
+# Работают без согласия: статус согласия (/me отдаёт урезанный ответ), принятие, список регионов (общий справочник)
+# и удаление данных (право пользователя). Всё остальное требует согласия.
+CONSENT_EXEMPT_API = {"/api/me", "/api/consent", "/api/regions", "/api/account/delete"}
 
 
 # ---------- middleware ----------
 
 @web.middleware
 async def auth_middleware(request: web.Request, handler):
-    if not request.path.startswith("/api/"):
+    if not request.path.startswith("/api/") or request.path in PUBLIC_API:
         return await handler(request)
     config: Config = request.app["config"]
     init_data = request.headers.get(INIT_HEADER, "")
@@ -43,6 +48,10 @@ async def auth_middleware(request: web.Request, handler):
         request["user_id"] = config.webapp_dev_user_id      # режим разработки
     else:
         return json_error(401, "unauthorized", "Откройте Mini App из Telegram.")
+    # без согласия на текущую версию политики персональные данные не читаем и не пишем
+    if request.path not in CONSENT_EXEMPT_API and not await get_db(request).has_consent(
+            request["user_id"], policy.POLICY_VERSION):
+        return json_error(403, "consent_required", "Нужно принять политику конфиденциальности.")
     return await handler(request)
 
 
@@ -82,14 +91,28 @@ async def health(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+def _consent_json(consent) -> dict:
+    ok = consent is not None and consent.policy_version == policy.POLICY_VERSION
+    return {
+        "accepted": ok,
+        "version": policy.POLICY_VERSION,                          # текущая версия политики
+        "accepted_version": consent.policy_version if consent else None,
+        "accepted_at": consent.accepted_at if consent else None,
+    }
+
+
 async def me(request: web.Request) -> web.Response:
     db, uid = get_db(request), request["user_id"]
+    consent = _consent_json(await db.get_consent(uid))
+    if not consent["accepted"]:      # до согласия личные данные не отдаём
+        return web.json_response({"user_id": uid, "consent": consent})
     settings = await db.get_settings(uid)
     region = get_region(settings.region_code)
     places = await db.list_places(uid)
     loc = await db.get_location(uid)
     return web.json_response({
         "user_id": uid,
+        "consent": consent,
         "region": ({"code": region.code, "name": region.name, "verified": is_verified(region.code)} if region else None),
         "timezone": settings.timezone,
         "subscribed": settings.subscribed,
@@ -100,6 +123,37 @@ async def me(request: web.Request) -> web.Response:
         "location": ({"lat": loc.latitude, "lon": loc.longitude, "name": loc.place} if loc else None),
         "has_place": bool(places or loc),
     })
+
+
+def _policy(request: web.Request) -> dict:
+    config: Config = request.app["config"]
+    return policy.policy_payload(config.policy_operator, config.policy_contact)
+
+
+async def policy_get(request: web.Request) -> web.Response:
+    return web.json_response(_policy(request))
+
+
+async def privacy_page(request: web.Request) -> web.Response:
+    return web.Response(text=policy.render_policy_html(_policy(request)), content_type="text/html",
+                        headers={"Cache-Control": "no-cache"})
+
+
+async def consent_accept(request: web.Request) -> web.Response:
+    data = await read_json(request)
+    if data.get("accept") is not True:
+        return json_error(400, "bad_request", "Нужно явное согласие.")
+    if data.get("version") != policy.POLICY_VERSION:     # устаревшая страница не может принять новую политику
+        return json_error(409, "version_mismatch", "Политика обновилась. Закройте и откройте приложение заново.")
+    consent = await get_db(request).set_consent(request["user_id"], policy.POLICY_VERSION)
+    return web.json_response({"ok": True, "consent": _consent_json(consent)})
+
+
+async def account_delete(request: web.Request) -> web.Response:
+    """Право на удаление: стираем все данные пользователя, включая согласие. Не требует согласия."""
+    removed = await get_db(request).delete_user_data(request["user_id"])
+    log.info("Данные пользователя %s удалены по его запросу", request["user_id"])
+    return web.json_response({"ok": True, "removed": removed})
 
 
 async def forecast(request: web.Request) -> web.Response:
@@ -188,6 +242,10 @@ def create_app(config: Config, db: Database, http: aiohttp.ClientSession, weathe
     app.router.add_get("/", index)
     app.router.add_get("/healthz", health)
     app.router.add_get("/api/me", me)
+    app.router.add_get("/api/policy", policy_get)
+    app.router.add_get("/privacy", privacy_page)
+    app.router.add_post("/api/consent", consent_accept)
+    app.router.add_post("/api/account/delete", account_delete)
     app.router.add_get("/api/forecast", forecast)
     app.router.add_get("/api/activity", activity)
     app.router.add_get("/api/seasons", seasons)

@@ -28,7 +28,8 @@ async def cmd_start(message: Message, webapp_url: str | None = None) -> None:
     await message.answer(
         f"Привет, {name}! 👋 Я <b>Зорька</b> — помощник охотника.\n"
         "Прогноз на зорьку, активность зверя и птицы, сроки охоты, чек-лист, угодья и журнал — "
-        "в приложении.",
+        "в приложении.\n"
+        "🔒 Открывая приложение, вы соглашаетесь на обработку данных: политика и согласие внутри.",
         reply_markup=ReplyKeyboardRemove(),
     )
     await send_open_button(message, "Открой приложение кнопкой ниже или кнопкой меню у поля ввода 👇", webapp_url)

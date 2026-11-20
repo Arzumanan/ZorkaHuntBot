@@ -7,6 +7,7 @@
   }));
   (async function init() {
     try { await Z.loadMe(); } catch (e) { return Z.showError(e, () => location.reload()); }
+    if (!Z.hasConsent()) return Z.showConsent();      // первый вход или новая версия политики
     const start = new URLSearchParams(location.search).get("tab");     // /?tab=checklist — удобно для проверки
     Z.go(Z.views[start] ? start : "weather");
   })();

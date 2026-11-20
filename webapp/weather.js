@@ -116,6 +116,7 @@
   }
   function activityView(data) {
     return [
+      h("div", { class: "muted", style: "margin-top:6px" }, "Оценка по правилам, а не гарантия."),
       ...data.days.map((d) => h("section", {},
         h("h2", { class: "day-title" }, d.heading),
         h("div", { class: "muted" }, d.moon.emoji + " " + d.moon.name + " · 🌅 " + d.sunrise + " · 🌇 " + d.sunset),

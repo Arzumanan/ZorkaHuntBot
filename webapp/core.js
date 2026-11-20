@@ -48,6 +48,7 @@
     if (!resp.ok) {
       const err = new Error((data && data.message) || "Ошибка " + resp.status);
       err.code = (data && data.error) || "http_" + resp.status;
+      if (err.code === "consent_required" && Z.onConsentRequired) Z.onConsentRequired();
       throw err;
     }
     return data;
@@ -95,6 +96,7 @@
   Z.loadMe = async function loadMe() {
     state.me = await Z.api("/api/me");
     const me = state.me;
+    if (!me.consent || !me.consent.accepted) { state.placeCount = 0; Z.syncHeader(); return me; }   // до согласия данных нет
     const options = me.places.map((p) => ({ key: p.key, title: (p.is_default ? "⭐ " : "") + p.name }));
     if (me.location) options.push({ key: "cur", title: "📍 " + (me.location.name || "Моё место") });
     placeSelect.replaceChildren(...options.map((o) => Z.h("option", { value: o.key }, o.title)));
@@ -105,10 +107,12 @@
     return me;
   };
   Z.syncHeader = () => placeSelect.classList.toggle("hidden", state.tab !== "weather" || (state.placeCount || 0) < 2);
+  Z.hasConsent = () => !!(state.me && state.me.consent && state.me.consent.accepted);
   placeSelect.addEventListener("change", () => { state.placeKey = placeSelect.value; Z.go("weather"); });
 
   // ---------- навигация ----------
   Z.go = async function go(tab) {
+    if (state.consentPending) return;        // пока нет согласия, вкладки недоступны
     state.tab = tab;
     document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     Z.syncHeader();

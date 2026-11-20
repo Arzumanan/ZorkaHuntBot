@@ -7,6 +7,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from bot.config import Config
 from bot.services.seasons import seasons_payload
 from bot.services.weather import Place, hourly_series
+from bot import policy
 from bot.web.api import INIT_HEADER, create_app
 from bot.web.auth import build_init_data
 from bot.web.payloads import forecast_payload
@@ -43,6 +44,16 @@ def make_config(dev_user=None, cors=None) -> Config:
     return Config(bot_token=TOKEN, db_path=":memory:", webapp_dev_user_id=dev_user, webapp_cors_origin=cors)
 
 
+CONSENT_USERS = (1, 2, 777)     # пользователи тестов: по умолчанию уже приняли политику
+
+
+async def make_app(config, db, weather=None):
+    """create_app, но предварительно записывает согласие тестовым пользователям."""
+    for uid in CONSENT_USERS:
+        await db.set_consent(uid, policy.POLICY_VERSION)
+    return create_app(config, db, None, weather or FakeWeather())
+
+
 def headers_for(user_id: int) -> dict:
     return {INIT_HEADER: build_init_data(TOKEN, {"id": user_id, "first_name": "T"})}
 
@@ -50,7 +61,7 @@ def headers_for(user_id: int) -> dict:
 @pytest.fixture
 async def client(db):
     weather = FakeWeather()
-    app = create_app(make_config(), db, None, weather)
+    app = await make_app(make_config(), db, weather)
     async with TestClient(TestServer(app)) as c:
         c.weather = weather
         yield c
@@ -80,7 +91,7 @@ async def test_post_requires_auth(client):
 
 
 async def test_dev_mode_allows_requests_without_init_data(db):
-    app = create_app(make_config(dev_user=777), db, None, FakeWeather())
+    app = await make_app(make_config(dev_user=777), db, FakeWeather())
     async with TestClient(TestServer(app)) as c:
         resp = await c.get("/api/me")
         assert resp.status == 200 and (await resp.json())["user_id"] == 777
@@ -232,7 +243,7 @@ async def test_weather_failure_returns_502(db):
             raise WeatherError("нет сети")
 
     await db.set_location(1, 1.0, 2.0, "x")
-    app = create_app(make_config(), db, None, Broken())
+    app = await make_app(make_config(), db, Broken())
     async with TestClient(TestServer(app)) as c:
         resp = await c.get("/api/forecast", headers=H)
         assert resp.status == 502 and (await resp.json())["error"] == "weather_unavailable"
@@ -271,7 +282,7 @@ async def test_users_are_isolated(client, db):
 
 
 async def test_cors_headers_when_configured(db):
-    app = create_app(make_config(cors="https://zorka.github.io"), db, None, FakeWeather())
+    app = await make_app(make_config(cors="https://zorka.github.io"), db, FakeWeather())
     async with TestClient(TestServer(app)) as c:
         resp = await c.options("/api/me")
         assert resp.status == 204 and resp.headers["Access-Control-Allow-Origin"] == "https://zorka.github.io"

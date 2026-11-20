@@ -147,6 +147,18 @@
       } }, me.location ? "Сменить место" : "Указать место"));
   }
 
+  function privacyCard(me) {
+    const c = me.consent || {};
+    const when = c.accepted_at ? new Date(c.accepted_at).toLocaleString("ru-RU") : "";
+    return h("div", { class: "card" },
+      h("h3", {}, "🔒 Конфиденциальность"),
+      h("div", { class: "muted" }, c.accepted ? `Вы приняли политику (версия ${c.version})${when ? " " + when : ""}.` : "Политика не принята."),
+      h("div", { class: "btn-stack" },
+        h("button", { class: "btn secondary", onclick: () => Z.views.policy(() => Z.go("more")) }, "Политика конфиденциальности"),
+        h("button", { class: "btn danger", onclick: () => Z.deleteAccount() }, "🗑 Удалить мои данные")),
+      h("div", { class: "muted", style: "margin-top:6px" }, "Удаление стирает всё, что приложение о вас хранит, и отзывает согласие."));
+  }
+
   Z.views.more = async function renderMore() {
     await Z.loadMe();
     const [places, settings] = await Promise.all([Z.api("/api/places"), Z.api("/api/settings")]);
@@ -157,6 +169,7 @@
       regionCard(settings),
       locationCard(state.me),
       digestCard(settings, state.me),
+      privacyCard(state.me),
       h("div", { class: "card muted" },
         "Зорька — справочный помощник. Оценки активности и сроки охоты ориентировочные: точные даты уточняйте в региональном охотуправлении."));
   };

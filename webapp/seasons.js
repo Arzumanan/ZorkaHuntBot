@@ -2,6 +2,7 @@
 (function () {
   "use strict";
   const { h, fmtDate, state, view } = Z;
+  const REF_NOTE = "Информация справочная. Перед выездом сверяйтесь с указом главы вашего региона и региональным охотуправлением.";
   const STATE_LABEL = { open: "открыт", upcoming: "скоро", closed: "закрыт", banned: "нет" };
 
   function entryNode(e) {
@@ -21,6 +22,7 @@
   function draw(data) {
     const links = data.sources.map((src) => h("li", {}, h("a", { href: src.url, onclick: (ev) => Z.openLink(ev, src.url) }, src.title)));
     Z.render(
+      h("div", { class: "card disclaimer", role: "note" }, "⚠️ ", h("b", {}, REF_NOTE)),
       h("div", { class: "card notice" + (data.verified ? " ok" : "") },
         h("b", {}, data.region.name), h("div", { class: "muted" }, "Сегодня " + fmtDate(data.today) + " · открыто сейчас: " + data.open_count),
         h("div", {}, data.verified ? data.summary : "Для этого региона нет проверенных региональных дат: показаны федеральные сроки (приказ Минприроды № 477)."),

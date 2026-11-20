@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import pytest
 from aiogram.exceptions import TelegramForbiddenError
 
+from bot import policy
 from bot.services import scheduler
 from bot.services.seasons import season_open
 
@@ -34,10 +35,12 @@ def utc(*a):
     return datetime(*a, tzinfo=timezone.utc)
 
 
-async def make_subscriber(db, region="krasnodar"):
+async def make_subscriber(db, region="krasnodar", consent=True):
     await db.set_region(USER, region)
     await db.set_location(USER, 45.0, 38.9, "Краснодар")
     await db.set_subscribed(USER, True)
+    if consent:
+        await db.set_consent(USER, policy.POLICY_VERSION)
     return (await db.list_subscribers())[0]
 
 
@@ -89,3 +92,25 @@ async def test_scheduler_unsubscribes_blocked_user(db, patched_weather):
     s = await make_subscriber(db)
     assert await scheduler.process_user(FakeBot(forbidden=True), db, None, s, utc(2026, 11, 21, 2, 5)) is False
     assert await db.list_subscribers() == []
+
+
+async def test_scheduler_skips_user_without_consent(db, patched_weather):
+    s = await make_subscriber(db, consent=False)
+    bot = FakeBot()
+    assert await scheduler.process_user(bot, db, None, s, utc(2026, 11, 21, 2, 5), URL) is False
+    assert bot.sent == [] and (await db.list_subscribers())[0].last_sent is None
+
+
+async def test_scheduler_skips_user_with_outdated_consent(db, patched_weather):
+    s = await make_subscriber(db, consent=False)
+    await db.set_consent(USER, "2000-01-01")
+    assert await scheduler.process_user(FakeBot(), db, None, s, utc(2026, 11, 21, 2, 5), URL) is False
+
+
+async def test_morning_message_has_reference_footer(db, patched_weather):
+    s = await make_subscriber(db)
+    bot = FakeBot()
+    await scheduler.process_user(bot, db, None, s, utc(2026, 11, 21, 2, 5), URL)
+    text = bot.sent[0][1]
+    assert text.rstrip().endswith("Оценка активности — не гарантия.")
+    assert "Информация справочная: сверяйтесь с указом главы региона и охотуправлением" in text

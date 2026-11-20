@@ -20,6 +20,8 @@ class Config:
     webapp_url: str | None = None          # публичный HTTPS-адрес Mini App (для кнопки в боте)
     webapp_dev_user_id: int | None = None  # только для разработки: пускает без initData
     webapp_cors_origin: str | None = None  # если статика отдаётся с другого домена
+    policy_operator: str | None = None     # оператор данных для политики (иначе значение из bot/policy.py)
+    policy_contact: str | None = None      # контакт оператора для политики
 
 
 def load_config() -> Config:
@@ -48,4 +50,6 @@ def load_config() -> Config:
         webapp_url=url,
         webapp_dev_user_id=dev_user,
         webapp_cors_origin=os.getenv("WEBAPP_CORS_ORIGIN", "").strip() or None,
+        policy_operator=os.getenv("POLICY_OPERATOR", "").strip() or None,
+        policy_contact=os.getenv("POLICY_CONTACT", "").strip() or None,
     )

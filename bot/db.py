@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import aiosqlite
 
@@ -49,6 +50,11 @@ CREATE TABLE IF NOT EXISTS checklist_items (
     custom    INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_checklist_user ON checklist_items(user_id, hunt_type);
+CREATE TABLE IF NOT EXISTS consents (
+    user_id        INTEGER PRIMARY KEY,
+    policy_version TEXT NOT NULL,
+    accepted_at    TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_trophies_user ON trophies(user_id, hunt_date DESC, id DESC);
 """
 
@@ -58,6 +64,13 @@ class UserLocation:
     latitude: float
     longitude: float
     place: str | None
+
+
+@dataclass(frozen=True)
+class Consent:
+    user_id: int
+    policy_version: str
+    accepted_at: str  # ISO 8601, UTC
 
 
 @dataclass(frozen=True)
@@ -324,3 +337,36 @@ class Database:
             "UPDATE checklist_items SET checked=0 WHERE user_id=? AND hunt_type=?", (user_id, hunt_type)
         )
         await self.conn.commit()
+
+    # --- согласие на обработку данных и удаление аккаунта ---
+    async def get_consent(self, user_id: int) -> Consent | None:
+        async with self.conn.execute(
+            "SELECT user_id, policy_version, accepted_at FROM consents WHERE user_id=?", (user_id,)
+        ) as cur:
+            r = await cur.fetchone()
+        return Consent(r["user_id"], r["policy_version"], r["accepted_at"]) if r else None
+
+    async def has_consent(self, user_id: int, policy_version: str) -> bool:
+        consent = await self.get_consent(user_id)
+        return consent is not None and consent.policy_version == policy_version
+
+    async def set_consent(self, user_id: int, policy_version: str, accepted_at: str | None = None) -> Consent:
+        accepted_at = accepted_at or datetime.now(timezone.utc).isoformat(timespec="seconds")
+        await self.conn.execute(
+            "INSERT INTO consents(user_id, policy_version, accepted_at) VALUES(?,?,?) "
+            "ON CONFLICT(user_id) DO UPDATE SET policy_version=excluded.policy_version, accepted_at=excluded.accepted_at",
+            (user_id, policy_version, accepted_at),
+        )
+        await self.conn.commit()
+        return Consent(user_id, policy_version, accepted_at)
+
+    DATA_TABLES = ("users", "trophies", "user_settings", "places", "checklist_items", "consents")
+
+    async def delete_user_data(self, user_id: int) -> dict[str, int]:
+        """Удаляет ВСЕ данные пользователя из всех таблиц (включая согласие). Возвращает число строк по таблицам."""
+        removed: dict[str, int] = {}
+        for table in self.DATA_TABLES:
+            cur = await self.conn.execute(f"DELETE FROM {table} WHERE user_id=?", (user_id,))  # имена таблиц — константы
+            removed[table] = cur.rowcount
+        await self.conn.commit()
+        return removed

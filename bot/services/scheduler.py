@@ -11,6 +11,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError
 
 from ..db import Database, Settings
+from .. import policy
 from ..keyboards import webapp_markup
 from .forecast_text import format_forecast
 from .locations import list_spots, pick_spot
@@ -20,6 +21,7 @@ from .weather import WeatherError, fetch_forecast, local_today, parse_forecast
 
 log = logging.getLogger(__name__)
 CHECK_INTERVAL = 60  # секунд
+FOOTER = "ℹ️ Информация справочная: сверяйтесь с указом главы региона и охотуправлением. Оценка активности — не гарантия."
 
 
 async def build_morning_message(db: Database, http: aiohttp.ClientSession, settings: Settings, today,
@@ -36,7 +38,7 @@ async def build_morning_message(db: Database, http: aiohttp.ClientSession, setti
               f"Регион: {html.escape(region.name) if region else '—'}\n"
               f"Открыто сейчас: {html.escape('; '.join(names)) if names else '—'}\n"
               f"Точные сроки уточняйте в региональном охотуправлении.")
-    return f"{header}\n\n{forecast}"
+    return f"{header}\n\n{forecast}\n\n{FOOTER}"
 
 
 async def process_user(bot: Bot, db: Database, http: aiohttp.ClientSession, s: Settings, now_utc: datetime,
@@ -45,6 +47,9 @@ async def process_user(bot: Bot, db: Database, http: aiohttp.ClientSession, s: S
     send, today = decide_send(now_utc, s.timezone, s.send_time, s.last_sent,
                               lambda d: season_open(s.region_code, d))
     if not send:
+        return False
+    if not await db.has_consent(s.user_id, policy.POLICY_VERSION):   # без согласия не обрабатываем данные
+        log.info("Рассылка пропущена: у пользователя %s нет согласия на текущую политику", s.user_id)
         return False
     text = await build_morning_message(db, http, s, today, now_utc)
     if text is None:
