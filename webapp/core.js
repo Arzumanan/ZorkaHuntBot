@@ -48,7 +48,6 @@
     if (!resp.ok) {
       const err = new Error((data && data.message) || "Ошибка " + resp.status);
       err.code = (data && data.error) || "http_" + resp.status;
-      if (err.code === "consent_required" && Z.onConsentRequired) Z.onConsentRequired();
       throw err;
     }
     return data;
@@ -85,7 +84,7 @@
   // replaceChildren не разворачивает массивы и печатает false/undefined как текст — разворачиваем сами
   Z.render = (...nodes) => view.replaceChildren(...nodes.flat(Infinity).filter((n) => n != null && n !== false));
   Z.showLoader = () => Z.render(Z.h("div", { class: "loader" }, "Загрузка…"));
-  Z.showError = (err, retry) => Z.render(Z.h("div", { class: "empty" },
+  Z.showError = (err, retry) => (err && err.code === "consent_required" && Z.showConsent) ? Z.showConsent() : Z.render(Z.h("div", { class: "empty" },
     Z.h("p", { class: "error" }, err.message),
     retry && Z.h("button", { class: "btn", onclick: retry }, "Повторить")));
   Z.backBar = (title, onBack) => Z.h("div", { class: "backbar" },
