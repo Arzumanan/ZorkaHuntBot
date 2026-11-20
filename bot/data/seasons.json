@@ -1,0 +1,1049 @@
+{
+ "meta": {
+  "federal_edition": "Приказ Минприроды России от 24.07.2020 № 477 (ред. от 25.12.2025); изменения от 02.11.2026 № 559 вступают в силу 27.11.2026 — проверьте, не затронули ли они сроки.",
+  "updated": "2026-11-20"
+ },
+ "sources": {
+  "fed_birds": {
+   "title": "Правила охоты (приказ Минприроды № 477), п. 45, 51 — пернатая дичь",
+   "url": "https://base.garant.ru/74578880/53f89421bbdaf741eb2d1ecc4ddb4c33/"
+  },
+  "fed_ungulates": {
+   "title": "Правила охоты, Приложение № 1 — копытные",
+   "url": "https://base.garant.ru/74578880/b89690251be5277812a78962f6302560/"
+  },
+  "fed_fur": {
+   "title": "Правила охоты, Приложение № 3 — пушные",
+   "url": "https://base.garant.ru/74578880/a496d02287c1e8a2f8df9041972293a4/"
+  },
+  "mo_decree": {
+   "title": "Постановление Губернатора Московской обл. № 94-ПГ от 27.04.2023 (к № 20-ПГ от 28.01.2021)",
+   "url": "https://www.moscow-gov.ru/doc/256191"
+  },
+  "mo_135": {
+   "title": "Постановление Губернатора Московской обл. № 135-ПГ от 27.05.2026 (продление ограничений до 01.03.2032)",
+   "url": "https://mosoblpravo.ru/postanovlenie/2026/05/27/n-135-pg/"
+  },
+  "kk_893": {
+   "title": "Постановление главы администрации (губернатора) Краснодарского края № 893 от 06.08.2012 в ред. № 922 от 30.12.2020",
+   "url": "https://krasnodar-gov.ru/doc/61309"
+  },
+  "kk_329": {
+   "title": "Постановление Губернатора Краснодарского края № 329 от 30.05.2024 (региональные сроки на зайца, лису, енотовидную собаку, волка, шакала, барсука отменены) — публикация",
+   "url": "http://publication.pravo.gov.ru/document/2300202406060018"
+  },
+  "kk_329_news": {
+   "title": "Пересказ постановления № 329 (Карта охотника)",
+   "url": "https://huntmap.ru/v-krasnodarskom-krae-izmenili-sroki-ohoty-2.html"
+  },
+  "kk_447": {
+   "title": "Постановление Губернатора Краснодарского края № 447 от 10.07.2023 (отмена региональных сроков на копытных) — публикация",
+   "url": "http://publication.pravo.gov.ru/document/2300202307170009"
+  },
+  "kk_2026": {
+   "title": "Сроки охоты в Краснодарском крае, сезон 2026 (справочный сайт, ссылается на постановление края)",
+   "url": "https://www.huntworld.ru/blog/sroki-otkrytiya-osenney-okhoty-v-krasnodarskom-krae/"
+  },
+  "ad_176": {
+   "title": "Указ Главы Республики Адыгея № 176 от 03.09.2012 (с изм.)",
+   "url": "https://base.garant.ru/32346043/"
+  },
+  "ad_2026": {
+   "title": "Сроки осенней охоты 2026 в Республике Адыгея (справочный сайт, ссылается на указ № 176)",
+   "url": "https://sledopyt.su/index.php?article_id=35&route=blog%2Farticle"
+  },
+  "ad_73": {
+   "title": "Указ Главы Республики Адыгея № 73 от 02.07.2024 (запрет весенней охоты на 2025–2026 гг.)",
+   "url": "http://publication.pravo.gov.ru/document/0100202407030002"
+  },
+  "tver_spring": {
+   "title": "Весенняя охота в Тверской области 2026 (АиФ Тверь, со ссылкой на Минприроды региона)",
+   "url": "https://tver.aif.ru/society/details/v-tverskoy-oblasti-opredeleny-sroki-vesenney-ohoty-v-2026-godu"
+  },
+  "tver_fall": {
+   "title": "Тверские ведомости: сроки летне-осенней охоты 2026–2027",
+   "url": "https://vedtver.ru/news/society/ohotniki-tverskoj-oblasti-uznali-tochnye-daty-sezona-dobychi-ptic-i-zverej/"
+  },
+  "tver_guide": {
+   "title": "Охота в Тверской области 2026/27 (справочный сайт; пост. Губернатора № 216-пг в ред. № 26-пг от 02.04.2026)",
+   "url": "https://moy-region.ru/guides/ohota-v-tverskoy-oblasti"
+  }
+ },
+ "federal": [
+  {
+   "id": "spring_frame",
+   "category": "spring",
+   "name": "Весенняя охота на пернатую дичь — федеральные рамки",
+   "ranges": [
+    {
+     "start": "03-01",
+     "end": "06-16"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_birds",
+   "note": "Это только рамки: конкретные периоды (не более 10 дней на боровую и на водоплавающую) и разрешённые виды определяет регион.",
+   "frame": true
+  },
+  {
+   "id": "waterfowl",
+   "category": "birds",
+   "name": "Водоплавающая дичь (утки, гуси, лысуха)",
+   "ranges": [
+    {
+     "start": "sat2-08",
+     "end": "12-31"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_birds",
+   "note": "Не менее 90 дней подряд."
+  },
+  {
+   "id": "marsh",
+   "category": "birds",
+   "name": "Болотно-луговая дичь (бекас, дупель, коростель…)",
+   "ranges": [
+    {
+     "start": "sat2-08",
+     "end": "12-31"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_birds"
+  },
+  {
+   "id": "field",
+   "category": "birds",
+   "name": "Степная и полевая дичь (перепел, фазан, голуби…)",
+   "ranges": [
+    {
+     "start": "sat2-08",
+     "end": "12-31"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_birds"
+  },
+  {
+   "id": "upland",
+   "category": "birds",
+   "name": "Боровая дичь (глухарь, тетерев, рябчик, вальдшнеп)",
+   "ranges": [
+    {
+     "start": "sat3-08",
+     "end": "eom-02"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_birds",
+   "note": "Не менее 120 дней подряд."
+  },
+  {
+   "id": "boar",
+   "category": "ungulates",
+   "name": "Кабан (все группы)",
+   "ranges": [
+    {
+     "start": "06-01",
+     "end": "eom-02"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_ungulates"
+  },
+  {
+   "id": "moose",
+   "category": "ungulates",
+   "name": "Лось (все группы)",
+   "ranges": [
+    {
+     "start": "09-15",
+     "end": "01-10"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_ungulates",
+   "note": "По разрешению в пределах лимита."
+  },
+  {
+   "id": "moose_males",
+   "category": "ungulates",
+   "name": "Лось (взрослые самцы)",
+   "ranges": [
+    {
+     "start": "09-01",
+     "end": "09-30"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_ungulates",
+   "note": "По разрешению в пределах лимита."
+  },
+  {
+   "id": "roe",
+   "category": "ungulates",
+   "name": "Косуля европейская (все группы)",
+   "ranges": [
+    {
+     "start": "10-01",
+     "end": "01-10"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_ungulates"
+  },
+  {
+   "id": "roe_males",
+   "category": "ungulates",
+   "name": "Косуля европейская (взрослые самцы)",
+   "ranges": [
+    {
+     "start": "05-20",
+     "end": "06-20"
+    },
+    {
+     "start": "07-15",
+     "end": "08-15"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_ungulates"
+  },
+  {
+   "id": "deer",
+   "category": "ungulates",
+   "name": "Олень благородный и пятнистый (все группы)",
+   "ranges": [
+    {
+     "start": "10-01",
+     "end": "01-10"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_ungulates"
+  },
+  {
+   "id": "deer_males",
+   "category": "ungulates",
+   "name": "Олень благородный и пятнистый (взрослые самцы)",
+   "ranges": [
+    {
+     "start": "09-01",
+     "end": "09-30"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_ungulates"
+  },
+  {
+   "id": "hare_fox",
+   "category": "fur",
+   "name": "Заяц (беляк, русак), лисица, енотовидная собака",
+   "ranges": [
+    {
+     "start": "09-15",
+     "end": "eom-02"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_fur"
+  },
+  {
+   "id": "wolf",
+   "category": "fur",
+   "name": "Волк, шакал",
+   "ranges": [
+    {
+     "start": "08-01",
+     "end": "03-31"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_fur"
+  },
+  {
+   "id": "badger",
+   "category": "fur",
+   "name": "Барсук",
+   "ranges": [
+    {
+     "start": "08-15",
+     "end": "10-31"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_fur"
+  },
+  {
+   "id": "beaver",
+   "category": "fur",
+   "name": "Бобр, выдра",
+   "ranges": [
+    {
+     "start": "10-01",
+     "end": "eom-02"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_fur"
+  },
+  {
+   "id": "muskrat",
+   "category": "fur",
+   "name": "Ондатра",
+   "ranges": [
+    {
+     "start": "09-10",
+     "end": "eom-02"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_fur"
+  },
+  {
+   "id": "fur_small",
+   "category": "fur",
+   "name": "Белка, куница, хорь, горностай, ласка, норка, енот-полоскун",
+   "ranges": [
+    {
+     "start": "10-15",
+     "end": "eom-02"
+    }
+   ],
+   "confidence": "federal",
+   "source": "fed_fur"
+  }
+ ],
+ "regions": {
+  "krasnodar": {
+   "verified": true,
+   "summary": "Краснодарский край: птица и мелкий пушной зверь — по постановлению № 893 (ред. № 922 от 30.12.2020); копытные и крупные хищники/заяц/лиса — по федеральным правилам (региональные сроки отменены постановлениями № 447/2023 и № 329/2024). Весенняя охота на пернатую дичь запрещена.",
+   "sources": [
+    "kk_893",
+    "kk_447",
+    "kk_329",
+    "kk_2026"
+   ],
+   "entries": [
+    {
+     "id": "spring_frame",
+     "category": "spring",
+     "name": "Весенняя охота на пернатую дичь",
+     "ranges": [],
+     "closed": true,
+     "note": "Запрещена в Краснодарском крае (постановление главы администрации от 07.04.2014 № 301, см. сноску в № 893).",
+     "confidence": "regional_official",
+     "source": "kk_893"
+    },
+    {
+     "id": "waterfowl",
+     "category": "birds",
+     "name": "Водоплавающая дичь (гуси, казарки, утки, лысуха, камышница)",
+     "ranges": [
+      {
+       "start": "sat4-09",
+       "end": "01-20"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893",
+     "note": "В 2026 году — с 26 сентября."
+    },
+    {
+     "id": "marsh",
+     "category": "birds",
+     "name": "Болотно-луговая дичь (дупель, бекас, чибис…), в т. ч. с подружейными собаками",
+     "ranges": [
+      {
+       "start": "09-01",
+       "end": "12-31"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893"
+    },
+    {
+     "id": "field",
+     "category": "birds",
+     "name": "Степная и полевая (самец фазана, перепел, голуби, серая куропатка)",
+     "ranges": [
+      {
+       "start": "sat3-08",
+       "end": "12-31"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893",
+     "note": "Только самцы фазана. В 2026 году — с 15 августа."
+    },
+    {
+     "id": "field_dogs",
+     "category": "birds",
+     "name": "Степная и полевая дичь — с подружейными собаками",
+     "ranges": [
+      {
+       "start": "sat3-08",
+       "end": "sat3-01"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893",
+     "note": "Подружейные: легавые, ретриверы, спаниели со справкой о происхождении."
+    },
+    {
+     "id": "upland",
+     "category": "birds",
+     "name": "Боровая дичь (вальдшнеп)",
+     "ranges": [
+      {
+       "start": "sat3-08",
+       "end": "12-31"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893"
+    },
+    {
+     "id": "upland_dogs",
+     "category": "birds",
+     "name": "Вальдшнеп — с подружейными собаками",
+     "ranges": [
+      {
+       "start": "sat3-08",
+       "end": "sat3-01"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893"
+    },
+    {
+     "id": "corncrake",
+     "category": "birds",
+     "name": "Коростель",
+     "ranges": [
+      {
+       "start": "sat3-08",
+       "end": "12-31"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893"
+    },
+    {
+     "id": "crow",
+     "category": "birds",
+     "name": "Ворона серая",
+     "ranges": [
+      {
+       "start": "sat3-08",
+       "end": "01-20"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893"
+    },
+    {
+     "id": "cormorant",
+     "category": "birds",
+     "name": "Баклан большой",
+     "ranges": [
+      {
+       "start": "09-01",
+       "end": "01-20"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893"
+    },
+    {
+     "id": "boar",
+     "category": "ungulates",
+     "name": "Кабан (все группы)",
+     "ranges": [
+      {
+       "start": "06-01",
+       "end": "eom-02"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "kk_447",
+     "note": "Региональные сроки на копытных отменены постановлением № 447 от 10.07.2023, действуют федеральные (справочные сайты). В ред. 2020 г. было 01.07–31.01."
+    },
+    {
+     "id": "fur_small",
+     "category": "fur",
+     "name": "Белка, куница, хорь, ласка, енот-полоскун",
+     "ranges": [
+      {
+       "start": "10-15",
+       "end": "02-11"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893"
+    },
+    {
+     "id": "muskrat",
+     "category": "fur",
+     "name": "Ондатра, водяная полёвка",
+     "ranges": [
+      {
+       "start": "11-01",
+       "end": "eom-02"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "kk_893"
+    },
+    {
+     "id": "hare_fox",
+     "category": "fur",
+     "name": "Заяц-русак, лисица, енотовидная собака",
+     "ranges": [
+      {
+       "start": "09-15",
+       "end": "eom-02"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "kk_329",
+     "note": "С 01.09.2024 — по федеральным срокам (постановление № 329)."
+    },
+    {
+     "id": "wolf",
+     "category": "fur",
+     "name": "Волк, шакал",
+     "ranges": [
+      {
+       "start": "08-01",
+       "end": "03-31"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "kk_329",
+     "note": "С 01.09.2024 — по федеральным срокам (постановление № 329)."
+    },
+    {
+     "id": "badger",
+     "category": "fur",
+     "name": "Барсук",
+     "ranges": [
+      {
+       "start": "08-15",
+       "end": "10-31"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "kk_329",
+     "note": "С 01.09.2024 — по федеральным срокам (постановление № 329)."
+    },
+    {
+     "id": "moose",
+     "category": "ungulates",
+     "name": "Лось",
+     "ranges": [],
+     "closed": true,
+     "note": "В Краснодарском крае охота на лося не предусмотрена (в региональных источниках срока нет).",
+     "confidence": "regional_reported",
+     "source": "fed_ungulates"
+    },
+    {
+     "id": "moose_males",
+     "category": "ungulates",
+     "name": "Лось (самцы)",
+     "ranges": [],
+     "closed": true,
+     "note": "В Краснодарском крае охота на лося не предусмотрена (в региональных источниках срока нет).",
+     "confidence": "regional_reported",
+     "source": "fed_ungulates"
+    }
+   ],
+   "notes": "Водоплавающая дичь по федеральному п. 51.4 для ЮФО — с 1 сентября по 20 января; Краснодарский край сам установил открытие с 4-й субботы сентября. В общедоступных угодьях действуют зоны охраны и свои правила выдачи разрешений (приказ минприроды края от 22.04.2026 № 503)."
+  },
+  "adygea": {
+   "verified": true,
+   "summary": "Республика Адыгея: сроки по Указу Главы РА № 176 от 03.09.2012 (с изменениями). Даты ниже сверены по справочному сайту, обновлённому 20.08.2026 (со ссылкой на указ) и по второму источнику; первичный текст действующей редакции указа получить не удалось — перед выездом проверьте. Весенняя охота на водоплавающую и боровую дичь: в 2025–2026 приостановлена Указом № 73 от 02.07.2024.",
+   "sources": [
+    "ad_176",
+    "ad_2026",
+    "ad_73"
+   ],
+   "entries": [
+    {
+     "id": "spring_frame",
+     "category": "spring",
+     "name": "Весенняя охота на пернатую дичь",
+     "ranges": [],
+     "closed": true,
+     "note": "В 2025–2026 годах приостановлена Указом Главы РА № 73 от 02.07.2024 (вальдшнеп, гуси, селезни уток, казарки). Сроки на 2027 год уточняйте: указ о приостановке мог быть продлён.",
+     "confidence": "regional_reported",
+     "source": "ad_73"
+    },
+    {
+     "id": "waterfowl",
+     "category": "birds",
+     "name": "Водоплавающая дичь (гуси, казарки, утки, лысуха, камышница)",
+     "ranges": [
+      {
+       "start": "09-01",
+       "end": "01-20"
+      }
+     ],
+     "confidence": "federal",
+     "source": "fed_birds",
+     "note": "Федеральное правило для ЮФО (п. 51.4 Правил охоты): с 1 сентября по 20 января; свой срок регион не установил."
+    },
+    {
+     "id": "marsh",
+     "category": "birds",
+     "name": "Болотно-луговая дичь (бекас, дупель, коростель…)",
+     "ranges": [
+      {
+       "start": "sat3-08",
+       "end": "12-31"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026",
+     "note": "В 2026 году — с 15 августа."
+    },
+    {
+     "id": "marsh_dogs",
+     "category": "birds",
+     "name": "Болотно-луговая дичь — с подружейными собаками и ловчими птицами",
+     "ranges": [
+      {
+       "start": "08-05",
+       "end": "12-31"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "field",
+     "category": "birds",
+     "name": "Степная и полевая дичь (перепел, голуби, горлица, фазан)",
+     "ranges": [
+      {
+       "start": "sat3-08",
+       "end": "12-31"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026",
+     "note": "Самок фазана добывать нельзя. В 2026 году — с 15 августа."
+    },
+    {
+     "id": "field_dogs",
+     "category": "birds",
+     "name": "Степная и полевая дичь — с подружейными собаками и ловчими птицами",
+     "ranges": [
+      {
+       "start": "08-05",
+       "end": "01-20"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "upland",
+     "category": "birds",
+     "name": "Боровая дичь (вальдшнеп)",
+     "ranges": [
+      {
+       "start": "sat3-08",
+       "end": "12-31"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026",
+     "note": "В 2026 году — с 15 августа."
+    },
+    {
+     "id": "upland_dogs",
+     "category": "birds",
+     "name": "Вальдшнеп — с подружейными собаками и ловчими птицами",
+     "ranges": [
+      {
+       "start": "08-05",
+       "end": "01-20"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "boar",
+     "category": "ungulates",
+     "name": "Кабан (все группы)",
+     "ranges": [
+      {
+       "start": "06-20",
+       "end": "01-20"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026",
+     "note": "Региональный срок короче федерального."
+    },
+    {
+     "id": "roe",
+     "category": "ungulates",
+     "name": "Косуля европейская (все группы)",
+     "ranges": [
+      {
+       "start": "10-01",
+       "end": "01-10"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "roe_males",
+     "category": "ungulates",
+     "name": "Косуля европейская (взрослые самцы)",
+     "ranges": [
+      {
+       "start": "07-15",
+       "end": "08-15"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "deer",
+     "category": "ungulates",
+     "name": "Олень благородный",
+     "ranges": [],
+     "closed": true,
+     "note": "Охота не открывается (по справочным данным 2026).",
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "deer_males",
+     "category": "ungulates",
+     "name": "Олень благородный (самцы)",
+     "ranges": [],
+     "closed": true,
+     "note": "Охота не открывается (по справочным данным 2026).",
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "moose",
+     "category": "ungulates",
+     "name": "Лось",
+     "ranges": [],
+     "closed": true,
+     "note": "В республике охота на лося не открывается / срок не установлен.",
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "moose_males",
+     "category": "ungulates",
+     "name": "Лось (самцы)",
+     "ranges": [],
+     "closed": true,
+     "note": "В республике охота на лося не открывается / срок не установлен.",
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "muskrat",
+     "category": "fur",
+     "name": "Ондатра",
+     "ranges": [
+      {
+       "start": "09-10",
+       "end": "01-08"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "raccoon_dog",
+     "category": "fur",
+     "name": "Енотовидная собака",
+     "ranges": [
+      {
+       "start": "10-01",
+       "end": "01-20"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "fur_small",
+     "category": "fur",
+     "name": "Куница, ласка, енот-полоскун",
+     "ranges": [
+      {
+       "start": "10-15",
+       "end": "02-12"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "beaver",
+     "category": "fur",
+     "name": "Бобр, выдра",
+     "ranges": [],
+     "closed": true,
+     "note": "Охота не открывается (по справочным данным 2026).",
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    },
+    {
+     "id": "badger",
+     "category": "fur",
+     "name": "Барсук",
+     "ranges": [],
+     "closed": true,
+     "note": "Охота не открывается (по справочным данным 2026).",
+     "confidence": "regional_reported",
+     "source": "ad_2026"
+    }
+   ],
+   "notes": "Заяц-русак, лисица, волк, шакал — по федеральным срокам (справочные источники расходятся). В общедоступных угодьях охота — в субботу, воскресенье, выходные и праздничные дни (по указу № 176). Нарезное оружие — только на кабана и косулю."
+  },
+  "moscow_oblast": {
+   "verified": true,
+   "summary": "Московская область: весенняя и осенняя охота на пернатую дичь — по постановлению Губернатора № 20-ПГ (ограничения в ред. № 94-ПГ; продлены до 01.03.2032 постановлением № 135-ПГ от 27.05.2026); копытные и пушные — по федеральным правилам.",
+   "sources": [
+    "mo_decree",
+    "mo_135"
+   ],
+   "entries": [
+    {
+     "id": "spring_frame",
+     "category": "spring",
+     "name": "Весенняя охота — рамки",
+     "ranges": [
+      {
+       "start": "03-01",
+       "end": "06-16"
+      }
+     ],
+     "confidence": "federal",
+     "source": "fed_birds",
+     "note": "Рамки; региональные периоды — ниже.",
+     "frame": true
+    },
+    {
+     "id": "spring_decoy",
+     "category": "spring",
+     "name": "Селезни уток с живой подсадной уткой",
+     "ranges": [
+      {
+       "start": "03-20",
+       "end": "05-10"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "mo_decree"
+    },
+    {
+     "id": "spring_south",
+     "category": "spring",
+     "name": "Весенняя охота на боровую и водоплавающую — южная часть области",
+     "ranges": [
+      {
+       "start": "sat2-04",
+       "days": 10
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "mo_decree",
+     "note": "10 календарных дней со второй субботы апреля. Список округов — в постановлении."
+    },
+    {
+     "id": "spring_north",
+     "category": "spring",
+     "name": "Весенняя охота на боровую и водоплавающую — северная часть области",
+     "ranges": [
+      {
+       "start": "sat3-04",
+       "days": 10
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "mo_decree",
+     "note": "10 календарных дней с третьей субботы апреля."
+    },
+    {
+     "id": "waterfowl",
+     "category": "birds",
+     "name": "Водоплавающая, болотно-луговая, степная и полевая дичь",
+     "ranges": [
+      {
+       "start": "sat2-08",
+       "end": "11-30"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "mo_decree",
+     "note": "В 2026 году — с 8 августа."
+    },
+    {
+     "id": "marsh",
+     "category": "birds",
+     "name": "Болотно-луговая дичь",
+     "ranges": [
+      {
+       "start": "sat2-08",
+       "end": "11-30"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "mo_decree"
+    },
+    {
+     "id": "field",
+     "category": "birds",
+     "name": "Степная и полевая дичь",
+     "ranges": [
+      {
+       "start": "sat2-08",
+       "end": "11-30"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "mo_decree"
+    },
+    {
+     "id": "marsh_dogs",
+     "category": "birds",
+     "name": "Болотно-луговая дичь — с подружейными собаками и ловчими птицами",
+     "ranges": [
+      {
+       "start": "07-25",
+       "end": "11-30"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "mo_decree"
+    },
+    {
+     "id": "field_dogs",
+     "category": "birds",
+     "name": "Боровая, степная и полевая дичь — с подружейными собаками и ловчими птицами",
+     "ranges": [
+      {
+       "start": "08-05",
+       "end": "01-01"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "mo_decree"
+    },
+    {
+     "id": "upland",
+     "category": "birds",
+     "name": "Боровая дичь (глухарь, тетерев, рябчик, вальдшнеп)",
+     "ranges": [
+      {
+       "start": "sat3-08",
+       "end": "12-31"
+      }
+     ],
+     "confidence": "regional_official",
+     "source": "mo_decree",
+     "note": "В 2026 году — с 15 августа."
+    }
+   ],
+   "notes": "Общедоступных угодий в области мало (в 2026 — три); в закреплённых нужна путёвка. Лимиты на копытных и барсука утверждены постановлением № 191-ПГ от 24.07.2026."
+  },
+  "tver": {
+   "verified": true,
+   "summary": "Тверская область: весенняя охота и охота с подружейными собаками — по данным регионального Минприроды (СМИ); остальное — федеральные сроки (совпадают с региональными по сообщению «Тверских ведомостей»). Первичный текст постановления № 216-пг в ред. № 26-пг прочитать не удалось — проверьте перед выездом.",
+   "sources": [
+    "tver_spring",
+    "tver_fall",
+    "tver_guide"
+   ],
+   "entries": [
+    {
+     "id": "spring_frame",
+     "category": "spring",
+     "name": "Весенняя охота — рамки",
+     "ranges": [
+      {
+       "start": "03-01",
+       "end": "06-16"
+      }
+     ],
+     "confidence": "federal",
+     "source": "fed_birds",
+     "note": "Рамки; региональные периоды — ниже.",
+     "frame": true
+    },
+    {
+     "id": "spring_south",
+     "category": "spring",
+     "name": "Весенняя охота на водоплавающую и боровую — южные округа",
+     "ranges": [
+      {
+       "start": "sat3-04",
+       "days": 10
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "tver_spring",
+     "note": "10 дней; в 2026 г. — 18–27 апреля. Запрещена добыча самок уток, глухарей и тетеревов, электронные манки и др. Привязка к третьей субботе апреля — по справочному сайту (ред. № 26-пг 2026 г.)."
+    },
+    {
+     "id": "spring_north",
+     "category": "spring",
+     "name": "Весенняя охота на водоплавающую и боровую — северные округа",
+     "ranges": [
+      {
+       "start": "sat4-04",
+       "days": 10
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "tver_spring",
+     "note": "10 дней; в 2026 г. — 25 апреля–4 мая. Привязка к четвёртой субботе апреля — по справочному сайту (ред. № 26-пг 2026 г.)."
+    },
+    {
+     "id": "marsh_dogs",
+     "category": "birds",
+     "name": "Болотно-луговая дичь — с подружейными собаками",
+     "ranges": [
+      {
+       "start": "07-25",
+       "end": "12-31"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "tver_fall"
+    },
+    {
+     "id": "field_dogs",
+     "category": "birds",
+     "name": "Боровая и полевая дичь — с подружейными собаками",
+     "ranges": [
+      {
+       "start": "08-05",
+       "end": "eom-02"
+      }
+     ],
+     "confidence": "regional_reported",
+     "source": "tver_fall"
+    }
+   ],
+   "notes": "Лось в Тверской области: 15 сентября – 10 января (федеральный срок), по лимиту."
+  }
+ }
+}

@@ -1,0 +1,358 @@
+[
+ {
+  "code": "krasnodar",
+  "name": "Краснодарский край"
+ },
+ {
+  "code": "adygea",
+  "name": "Республика Адыгея"
+ },
+ {
+  "code": "altayskiy_kray",
+  "name": "Алтайский край"
+ },
+ {
+  "code": "amurskaya_oblast",
+  "name": "Амурская область"
+ },
+ {
+  "code": "arkhangelskaya_oblast",
+  "name": "Архангельская область"
+ },
+ {
+  "code": "astrakhanskaya_oblast",
+  "name": "Астраханская область"
+ },
+ {
+  "code": "belgorodskaya_oblast",
+  "name": "Белгородская область"
+ },
+ {
+  "code": "bryanskaya_oblast",
+  "name": "Брянская область"
+ },
+ {
+  "code": "vladimirskaya_oblast",
+  "name": "Владимирская область"
+ },
+ {
+  "code": "volgogradskaya_oblast",
+  "name": "Волгоградская область"
+ },
+ {
+  "code": "vologodskaya_oblast",
+  "name": "Вологодская область"
+ },
+ {
+  "code": "voronezhskaya_oblast",
+  "name": "Воронежская область"
+ },
+ {
+  "code": "donetskaya_narodnaya_respublika",
+  "name": "Донецкая Народная Республика"
+ },
+ {
+  "code": "evreyskaya_avtonomnaya_oblast",
+  "name": "Еврейская автономная область"
+ },
+ {
+  "code": "zabaykalskiy_kray",
+  "name": "Забайкальский край"
+ },
+ {
+  "code": "zaporozhskaya_oblast",
+  "name": "Запорожская область"
+ },
+ {
+  "code": "ivanovskaya_oblast",
+  "name": "Ивановская область"
+ },
+ {
+  "code": "irkutskaya_oblast",
+  "name": "Иркутская область"
+ },
+ {
+  "code": "kabardino_balkarskaya_respublika",
+  "name": "Кабардино-Балкарская Республика"
+ },
+ {
+  "code": "kaliningradskaya_oblast",
+  "name": "Калининградская область"
+ },
+ {
+  "code": "kaluzhskaya_oblast",
+  "name": "Калужская область"
+ },
+ {
+  "code": "kamchatskiy_kray",
+  "name": "Камчатский край"
+ },
+ {
+  "code": "karachaevo_cherkesskaya_respublika",
+  "name": "Карачаево-Черкесская Республика"
+ },
+ {
+  "code": "kemerovskaya_oblast_kuzbass",
+  "name": "Кемеровская область — Кузбасс"
+ },
+ {
+  "code": "kirovskaya_oblast",
+  "name": "Кировская область"
+ },
+ {
+  "code": "kostromskaya_oblast",
+  "name": "Костромская область"
+ },
+ {
+  "code": "krasnoyarsk",
+  "name": "Красноярский край"
+ },
+ {
+  "code": "kurganskaya_oblast",
+  "name": "Курганская область"
+ },
+ {
+  "code": "kurskaya_oblast",
+  "name": "Курская область"
+ },
+ {
+  "code": "leningradskaya_oblast",
+  "name": "Ленинградская область"
+ },
+ {
+  "code": "lipetskaya_oblast",
+  "name": "Липецкая область"
+ },
+ {
+  "code": "luganskaya_narodnaya_respublika",
+  "name": "Луганская Народная Республика"
+ },
+ {
+  "code": "magadanskaya_oblast",
+  "name": "Магаданская область"
+ },
+ {
+  "code": "moskva",
+  "name": "Москва"
+ },
+ {
+  "code": "moscow_oblast",
+  "name": "Московская область"
+ },
+ {
+  "code": "murmanskaya_oblast",
+  "name": "Мурманская область"
+ },
+ {
+  "code": "nenetskiy_avtonomnyy_okrug",
+  "name": "Ненецкий автономный округ"
+ },
+ {
+  "code": "nizhegorodskaya_oblast",
+  "name": "Нижегородская область"
+ },
+ {
+  "code": "novgorodskaya_oblast",
+  "name": "Новгородская область"
+ },
+ {
+  "code": "novosibirskaya_oblast",
+  "name": "Новосибирская область"
+ },
+ {
+  "code": "omskaya_oblast",
+  "name": "Омская область"
+ },
+ {
+  "code": "orenburgskaya_oblast",
+  "name": "Оренбургская область"
+ },
+ {
+  "code": "orlovskaya_oblast",
+  "name": "Орловская область"
+ },
+ {
+  "code": "penzenskaya_oblast",
+  "name": "Пензенская область"
+ },
+ {
+  "code": "permskiy_kray",
+  "name": "Пермский край"
+ },
+ {
+  "code": "primorskiy_kray",
+  "name": "Приморский край"
+ },
+ {
+  "code": "pskovskaya_oblast",
+  "name": "Псковская область"
+ },
+ {
+  "code": "respublika_altay",
+  "name": "Республика Алтай"
+ },
+ {
+  "code": "respublika_bashkortostan",
+  "name": "Республика Башкортостан"
+ },
+ {
+  "code": "respublika_buryatiya",
+  "name": "Республика Бурятия"
+ },
+ {
+  "code": "respublika_dagestan",
+  "name": "Республика Дагестан"
+ },
+ {
+  "code": "respublika_ingushetiya",
+  "name": "Республика Ингушетия"
+ },
+ {
+  "code": "respublika_kalmykiya",
+  "name": "Республика Калмыкия"
+ },
+ {
+  "code": "respublika_kareliya",
+  "name": "Республика Карелия"
+ },
+ {
+  "code": "respublika_komi",
+  "name": "Республика Коми"
+ },
+ {
+  "code": "respublika_krym",
+  "name": "Республика Крым"
+ },
+ {
+  "code": "respublika_mariy_el",
+  "name": "Республика Марий Эл"
+ },
+ {
+  "code": "respublika_mordoviya",
+  "name": "Республика Мордовия"
+ },
+ {
+  "code": "respublika_sakha_yakutiya",
+  "name": "Республика Саха (Якутия)"
+ },
+ {
+  "code": "respublika_severnaya_osetiya_alaniya",
+  "name": "Республика Северная Осетия — Алания"
+ },
+ {
+  "code": "respublika_tatarstan",
+  "name": "Республика Татарстан"
+ },
+ {
+  "code": "respublika_tyva",
+  "name": "Республика Тыва"
+ },
+ {
+  "code": "khakasia",
+  "name": "Республика Хакасия"
+ },
+ {
+  "code": "rostovskaya_oblast",
+  "name": "Ростовская область"
+ },
+ {
+  "code": "ryazanskaya_oblast",
+  "name": "Рязанская область"
+ },
+ {
+  "code": "samarskaya_oblast",
+  "name": "Самарская область"
+ },
+ {
+  "code": "sankt_peterburg",
+  "name": "Санкт-Петербург"
+ },
+ {
+  "code": "saratovskaya_oblast",
+  "name": "Саратовская область"
+ },
+ {
+  "code": "sakhalinskaya_oblast",
+  "name": "Сахалинская область"
+ },
+ {
+  "code": "sverdlovskaya_oblast",
+  "name": "Свердловская область"
+ },
+ {
+  "code": "sevastopol",
+  "name": "Севастополь"
+ },
+ {
+  "code": "smolenskaya_oblast",
+  "name": "Смоленская область"
+ },
+ {
+  "code": "stavropolskiy_kray",
+  "name": "Ставропольский край"
+ },
+ {
+  "code": "tambovskaya_oblast",
+  "name": "Тамбовская область"
+ },
+ {
+  "code": "tver",
+  "name": "Тверская область"
+ },
+ {
+  "code": "tomskaya_oblast",
+  "name": "Томская область"
+ },
+ {
+  "code": "tulskaya_oblast",
+  "name": "Тульская область"
+ },
+ {
+  "code": "tyumenskaya_oblast",
+  "name": "Тюменская область"
+ },
+ {
+  "code": "udmurtskaya_respublika",
+  "name": "Удмуртская Республика"
+ },
+ {
+  "code": "ulyanovskaya_oblast",
+  "name": "Ульяновская область"
+ },
+ {
+  "code": "khabarovskiy_kray",
+  "name": "Хабаровский край"
+ },
+ {
+  "code": "khanty_mansiyskiy_avtonomnyy_okrug_yugra",
+  "name": "Ханты-Мансийский автономный округ — Югра"
+ },
+ {
+  "code": "khersonskaya_oblast",
+  "name": "Херсонская область"
+ },
+ {
+  "code": "chelyabinskaya_oblast",
+  "name": "Челябинская область"
+ },
+ {
+  "code": "chechenskaya_respublika",
+  "name": "Чеченская Республика"
+ },
+ {
+  "code": "chuvashskaya_respublika",
+  "name": "Чувашская Республика"
+ },
+ {
+  "code": "chukotskiy_avtonomnyy_okrug",
+  "name": "Чукотский автономный округ"
+ },
+ {
+  "code": "yamalo_nenetskiy_avtonomnyy_okrug",
+  "name": "Ямало-Ненецкий автономный округ"
+ },
+ {
+  "code": "yaroslavskaya_oblast",
+  "name": "Ярославская область"
+ }
+]
