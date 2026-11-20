@@ -1,7 +1,7 @@
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 
 from ..keyboards import BTN_HELP, main_menu
 
@@ -25,17 +25,38 @@ HELP_TEXT = (
     "/checklist — чек-лист снаряжения: оружие, документы, снаряжение, еда и питьё\n"
     "/add_trophy — записать трофей, /journal — последние 10 записей\n"
     "/stats — статистика журнала (если ведёшь записи)\n"
-    "/cancel — отменить текущий ввод\n\n"
+    "/app — открыть Mini App (если настроен)\n/cancel — отменить текущий ввод\n\n"
     "Начни с /region и /location. Сроки охоты — справочные: "
     "точные даты уточняйте в региональном охотуправлении."
 )
 
 
+def webapp_markup(webapp_url: str | None) -> InlineKeyboardMarkup | None:
+    """Inline-кнопка Mini App (только inline и кнопка меню передают подписанную initData)."""
+    if not webapp_url:
+        return None
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🌄 Открыть Зорьку", web_app=WebAppInfo(url=webapp_url))
+    ]])
+
+
 @router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext) -> None:
+async def cmd_start(message: Message, state: FSMContext, webapp_url: str | None = None) -> None:
     await state.clear()
     name = message.from_user.first_name if message.from_user else "охотник"
     await message.answer(f"Привет, {name}! 👋\n\n{HELP_TEXT}", reply_markup=main_menu())
+    markup = webapp_markup(webapp_url)
+    if markup:
+        await message.answer("Прогноз, активность и сроки охоты с графиками — в приложении:", reply_markup=markup)
+
+
+@router.message(Command("app"))
+async def cmd_app(message: Message, webapp_url: str | None = None) -> None:
+    markup = webapp_markup(webapp_url)
+    if markup is None:
+        await message.answer("Mini App пока не настроен (нужен WEBAPP_URL в .env, см. README).")
+        return
+    await message.answer("Открой приложение кнопкой ниже:", reply_markup=markup)
 
 
 @router.message(Command("help"))

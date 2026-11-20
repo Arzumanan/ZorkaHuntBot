@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <title>Зорька</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header id="header">
+    <div class="brand">🌄 Зорька</div>
+    <select id="place-select" class="hidden" aria-label="Угодье"></select>
+    <button id="settings-btn" class="icon-btn" aria-label="Настройки">⚙️</button>
+  </header>
+  <nav id="tabs" class="tabs">
+    <button data-tab="forecast" class="active">Прогноз</button>
+    <button data-tab="activity">Активность</button>
+    <button data-tab="seasons">Сезоны</button>
+  </nav>
+  <main id="view"><div class="loader">Загрузка…</div></main>
+  <script>
+    // Если статика лежит на другом домене, укажите адрес API, например: window.ZORKA_API_BASE = "https://api.example.com";
+    window.ZORKA_API_BASE = window.ZORKA_API_BASE || "";
+  </script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

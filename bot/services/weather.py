@@ -169,6 +169,31 @@ def parse_forecast(raw: dict[str, Any]) -> dict[date, DayForecast]:
     return result
 
 
+def hourly_series(raw: dict[str, Any], day: date) -> dict[str, list]:
+    """Почасовые ряды за сутки (для графиков): время ЧЧ:ММ, температура, ветер, порывы, направление,
+    осадки, давление (мм рт. ст.), облачность. Пропуски — None."""
+    hourly = raw.get("hourly") or {}
+    times = hourly.get("time") or []
+    prefix = day.isoformat()
+    idx = [i for i, t in enumerate(times) if t.startswith(prefix)]
+
+    def col(name: str) -> list[float | None]:
+        values = hourly.get(name) or [None] * len(times)
+        return [values[i] for i in idx]
+
+    pressure = col("pressure_msl")
+    return {
+        "time": [times[i][11:16] for i in idx],
+        "temperature": col("temperature_2m"),
+        "wind_speed": col("wind_speed_10m"),
+        "wind_gusts": col("wind_gusts_10m"),
+        "wind_direction": col("wind_direction_10m"),
+        "precipitation": col("precipitation"),
+        "pressure_mmhg": [None if p is None else round(p * HPA_TO_MMHG, 1) for p in pressure],
+        "cloud_cover": col("cloud_cover"),
+    }
+
+
 def local_today(raw: dict[str, Any], now_utc: datetime | None = None) -> date:
     """Сегодняшняя дата в часовом поясе точки (по utc_offset_seconds ответа)."""
     now_utc = now_utc or datetime.now(timezone.utc)

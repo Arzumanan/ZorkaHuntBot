@@ -291,3 +291,53 @@ def format_seasons(code: str, today: date, data: dict | None = None) -> list[str
                 "Это справка, а не юридический документ.")
     parts.append("\n\n".join(tail))
     return parts
+
+
+# ---------- JSON для Mini App ----------
+
+def _iso(d: date | None) -> str | None:
+    return d.isoformat() if d else None
+
+
+def seasons_payload(code: str, today: date, data: dict | None = None) -> dict:
+    """Сроки охоты региона в виде словаря для JSON API."""
+    data = data or load_data()
+    region = get_region(code)
+    verified = is_verified(code, data)
+    entries = region_entries(code, data)
+    categories = []
+    for cat in CATEGORY_ORDER:
+        items = [e for e in entries if e.category == cat]
+        if cat == "spring" and any(not e.frame for e in items):
+            items = [e for e in items if not e.frame]
+        out = []
+        for e in items:
+            st = entry_status(e, today)
+            windows = []
+            if e.ranges and not e.closed:
+                for w in entry_windows(e, today):
+                    if w.end >= today and w.start <= today + timedelta(days=366):
+                        windows.append({"start": _iso(w.start), "end": _iso(w.end)})
+                windows = windows[: len(e.ranges)]
+            out.append({
+                "id": e.id, "name": e.name, "state": st.state, "frame": e.frame, "note": e.note,
+                "confidence": e.confidence, "confidence_label": CONFIDENCE_LABELS.get(e.confidence, e.confidence),
+                "days_to_open": st.days if st.state == "upcoming" else None,
+                "current_end": _iso(st.window.end) if st.state == "open" and st.window else None,
+                "next_start": _iso(st.window.start) if st.state in ("upcoming", "closed") and st.window else None,
+                "windows": windows,
+            })
+        categories.append({"id": cat, "title": CATEGORY_TITLES[cat], "entries": out})
+    reg = data["regions"].get(code, {}) if verified else {}
+    src_keys = list(dict.fromkeys(reg.get("sources", []) + ["fed_birds", "fed_ungulates", "fed_fur"]))
+    return {
+        "region": {"code": code, "name": region.name if region else code},
+        "verified": verified,
+        "summary": reg.get("summary") if verified else None,
+        "notes": reg.get("notes") if verified else None,
+        "today": _iso(today),
+        "categories": categories,
+        "sources": [data["sources"][k] for k in src_keys],
+        "disclaimer": DISCLAIMER,
+        "open_count": len([e for e in entries if not e.frame and not e.closed and entry_status(e, today).state == "open"]),
+    }

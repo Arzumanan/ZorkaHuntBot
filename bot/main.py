@@ -14,12 +14,13 @@ import aiohttp
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import BotCommand
+from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
 
 from .config import load_config
 from .db import Database
 from .handlers import checklist, common, forecast, journal, location, places, seasons, subscription
 from .services.scheduler import run_scheduler
+from .web.api import start_web_server
 
 COMMANDS = [
     BotCommand(command="forecast", description="Прогноз на зорьку"),
@@ -58,12 +59,24 @@ async def main() -> None:
         dp = build_dispatcher()
         dp["db"] = db
         dp["http"] = http
+        dp["webapp_url"] = config.webapp_url
         scheduler_task = asyncio.create_task(run_scheduler(bot, db, http))
         try:
-            await bot.set_my_commands(COMMANDS)
+            web_runner = await start_web_server(config, db, http)
+        except OSError as exc:  # например, порт занят: бот должен работать и без Mini App
+            logging.getLogger(__name__).error("Веб-сервер Mini App не запущен: %s", exc)
+            web_runner = None
+        try:
+            commands = COMMANDS + ([BotCommand(command="app", description="Открыть Mini App")] if config.webapp_url else [])
+            await bot.set_my_commands(commands)
+            if config.webapp_url:
+                await bot.set_chat_menu_button(
+                    menu_button=MenuButtonWebApp(text="Зорька", web_app=WebAppInfo(url=config.webapp_url)))
             await dp.start_polling(bot)
         finally:
             scheduler_task.cancel()
+            if web_runner is not None:
+                await web_runner.cleanup()
             await bot.session.close()
             await db.close()
 

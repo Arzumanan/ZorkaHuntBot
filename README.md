@@ -15,6 +15,7 @@
 | `/settime ЧЧ:ММ`, `/timezone` | время рассылки (по умолчанию 05:00) и часовой пояс (по умолчанию Europe/Moscow) |
 | `/checklist` | чек-лист: оружие, документы, снаряжение, еда и питьё; нажимай на пункты (✅), добавляй свои, подсказки по погоде |
 | `/add_trophy`, `/journal` | журнал трофеев (по желанию), последние 10 записей |
+| `/app` | открыть Mini App (если настроен `WEBAPP_URL`) |
 | `/stats` | статистика журнала: выезды и трофеи, по дичи, угодьям и месяцам, лучшие месяцы (если журнал ведётся) |
 
 Погода — [Open-Meteo](https://open-meteo.com/) (ключ не нужен). Фаза луны считается локально. Данные хранятся в SQLite (`zorka.db`).
@@ -55,6 +56,54 @@ python -m bot.main
 
 > ⚠️ Бот работает через long polling: одновременно запускайте только **один** экземпляр с этим токеном, иначе будет ошибка `Conflict: terminated by other getUpdates request`.
 
+## Mini App (Telegram Web App)
+
+Кроме команд у Зорьки есть мини-приложение: **прогноз, активность и сроки охоты** с графиками, вкладки «Прогноз», «Активность», «Сезоны», выбор угодья, смена региона и поиск города (в Mini App нельзя запросить геолокацию, поэтому город вводится текстом). Оформление подхватывает тему Telegram (светлая/тёмная).
+
+Как устроено: веб-сервер (aiohttp) работает **в том же процессе, что и бот**, отдаёт статику из `webapp/` и JSON API `/api/...`. Каждый запрос подписан Telegram (`initData`): сервер проверяет HMAC-SHA256 по токену бота и возраст подписи (до 24 часов). Без валидной подписи API отвечает 401.
+
+> Кнопка запуска должна быть **inline** (под сообщением) или кнопкой меню чата. Кнопки обычной клавиатуры (reply) не передают подпись, API с них не заработает. Бот сам добавляет inline-кнопку «Открыть Зорьку» в `/start` и `/app`, а кнопку меню чата ставит при запуске (через BotFather ничего настраивать не нужно).
+
+### Переменные `.env`
+
+| Ключ | Что это | По умолчанию |
+|---|---|---|
+| `WEBAPP_URL` | публичный **https**-адрес Mini App. Пусто: бот работает как раньше, без кнопок | пусто |
+| `WEBAPP_HOST` | на каком адресе слушает веб-сервер | `127.0.0.1` |
+| `WEBAPP_PORT` | порт веб-сервера | `8080` |
+| `WEBAPP_DEV_USER_ID` | **только для разработки**: запросы без `initData` считаются запросами этого Telegram ID (чтобы открыть приложение в обычном браузере). В боевой работе оставляйте пустым | пусто |
+| `WEBAPP_CORS_ORIGIN` | разрешённый Origin, если статика лежит на другом домене (например, GitHub Pages) | пусто |
+
+### Запуск с туннелем cloudflared (быстрый способ на своём ПК)
+
+Telegram открывает Mini App только по https, а бот стоит у вас на компьютере. Бесплатный временный туннель Cloudflare решает это без регистрации:
+
+1. Установите cloudflared: `winget install --id Cloudflare.cloudflared`.
+2. Запустите бота: `python -m bot.main` (веб-сервер поднимется на `http://127.0.0.1:8080`).
+3. В **втором** окне PowerShell: `cloudflared tunnel --url http://127.0.0.1:8080`. В выводе найдите адрес вида `https://что-то-там.trycloudflare.com`.
+4. Впишите его в `.env`: `WEBAPP_URL=https://что-то-там.trycloudflare.com`.
+5. Перезапустите бота (Ctrl+C и снова `python -m bot.main`). Напишите боту `/start` и нажмите «Открыть Зорьку» (или кнопку меню рядом с полем ввода).
+
+У «быстрого» туннеля адрес **меняется при каждом запуске** cloudflared, и тогда нужно повторить шаги 4 и 5. Пока компьютер выключен или туннель не запущен, приложение не откроется.
+
+### Проверка без Telegram (режим разработки)
+
+В `.env` поставьте `WEBAPP_DEV_USER_ID=<ваш Telegram ID>`, запустите бота и откройте `http://127.0.0.1:8080/` в браузере: API будет считать вас этим пользователем. Telegram-специфичные вещи (`ready()`, тема) в браузере не работают, но вкладки и графики видны. **Не включайте это на публичном адресе:** любой, кто знает адрес, получит доступ к данным этого пользователя.
+
+### Постоянный хостинг
+
+- **VPS** (любой Linux с Python 3.11+): запустить бота как systemd-сервис, поставить перед ним Caddy или nginx с сертификатом Let's Encrypt и проксировать домен на `127.0.0.1:8080`. `WEBAPP_URL=https://ваш-домен`. Это самый простой постоянный вариант: один процесс, ничего больше не нужно.
+- **Статика на GitHub Pages, API отдельно**: папку `webapp/` можно выложить на Pages, но API всё равно должен быть на https-хосте с ботом. Тогда в `.env` бота задайте `WEBAPP_CORS_ORIGIN=https://<логин>.github.io`, а в `webapp/index.html` перед `app.js` добавьте `<script>window.ZORKA_API_BASE = "https://адрес-вашего-api";</script>`. `WEBAPP_URL` указывает на страницу Pages.
+
+### Файлы Mini App
+
+```
+webapp/index.html, style.css, app.js   интерфейс (без сборки, без CDN; только telegram-web-app.js с telegram.org)
+bot/web/auth.py                        проверка initData (чистые функции)
+bot/web/payloads.py                    сборка JSON прогноза и активности
+bot/web/api.py                         aiohttp: статика, /api/me, /forecast, /activity, /seasons, /regions, /region, /location
+```
+
 ## Тесты
 
 ```powershell
@@ -69,13 +118,14 @@ pytest
 ```
 bot/
   main.py            точка входа
-  config.py          токен и путь к БД из .env
+  config.py          токен, путь к БД и настройки Mini App из .env
   db.py              SQLite: локации и журнал
   keyboards.py       кнопки меню
   utils.py           разбор дат
   data/              seasons.json (сроки охоты), regions.json (список регионов)
   handlers/          common, location, forecast (+/activity), seasons (+/region), places,
                      checklist, subscription, journal (+/stats)
+  web/               Mini App: auth (initData), payloads, api (aiohttp)
   services/
     weather.py       запросы и разбор ответов Open-Meteo
     moon.py          фаза луны
@@ -88,7 +138,8 @@ bot/
     stats.py         статистика журнала
     locations.py     выбор угодья для прогноза
     forecast_text.py сборка текста прогноза
-tests/               pytest: scoring, moon, weather, db, utils, seasons, activity,
+webapp/              Mini App: index.html, style.css, app.js
+tests/               pytest (+ web auth/API, Mini App в боте): scoring, moon, weather, db, utils, seasons, activity,
                      subscription, checklist, stats, сквозные сценарии хендлеров
 ```
 
