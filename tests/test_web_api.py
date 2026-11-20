@@ -118,7 +118,7 @@ async def test_every_script_and_style_in_index_is_served(client):
 
     text = await (await client.get("/")).text()
     local = re.findall(r'(?:src|href)="(/static/[^"]+)"', text)
-    assert {"/static/style.css", "/static/core.js", "/static/app.js"} <= set(local)
+    assert {"/static/style.css", "/static/core.js", "/static/app.js"} <= {u.split("?")[0] for u in local}
     for url in local:
         resp = await client.get(url)
         assert resp.status == 200, url
