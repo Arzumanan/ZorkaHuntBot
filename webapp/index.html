@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <title>Зорька</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=1795172389">
+  <link rel="stylesheet" href="style.css?v=1795173923">
 </head>
 <body>
   <header id="header">
@@ -22,16 +22,30 @@
   </nav>
   <div id="toast" class="toast hidden" role="status"></div>
   <script>
-    // Если статика лежит на другом домене, укажите адрес API, например: window.ZORKA_API_BASE = "https://api.example.com";
+    // ВРЕМЕННО, только для разового переноса из старой базы: адрес сервера бота, если приложение открыто НЕ с него
+    // (например, со страницы GitHub Pages). Пример: window.ZORKA_API_BASE = "https://xxxx.trycloudflare.com";
+    // Если приложение раздаёт сам бот, оставьте пустым. После переноса блок можно удалить.
     window.ZORKA_API_BASE = window.ZORKA_API_BASE || "";
   </script>
-  <script src="/static/core.js?v=1795172389"></script>
-  <script src="/static/weather.js?v=1795172389"></script>
-  <script src="/static/seasons.js?v=1795172389"></script>
-  <script src="/static/checklist.js?v=1795172389"></script>
-  <script src="/static/journal.js?v=1795172389"></script>
-  <script src="/static/more.js?v=1795172389"></script>
-  <script src="/static/consent.js?v=1795172389"></script>
-  <script src="/static/app.js?v=1795172389"></script>
+  <script src="lib/dates.js?v=1795173923"></script>
+  <script src="lib/weather.js?v=1795173923"></script>
+  <script src="lib/scoring.js?v=1795173923"></script>
+  <script src="lib/moon.js?v=1795173923"></script>
+  <script src="lib/activity.js?v=1795173923"></script>
+  <script src="lib/forecast.js?v=1795173923"></script>
+  <script src="lib/seasons.js?v=1795173923"></script>
+  <script src="lib/checklist.js?v=1795173923"></script>
+  <script src="lib/stats.js?v=1795173923"></script>
+  <script src="lib/storage.js?v=1795173923"></script>
+  <script src="lib/data.js?v=1795173923"></script>
+  <script src="lib/api.js?v=1795173923"></script>
+  <script src="lib/migrate.js?v=1795173923"></script>
+  <script src="core.js?v=1795173923"></script>
+  <script src="weather.js?v=1795173923"></script>
+  <script src="seasons.js?v=1795173923"></script>
+  <script src="checklist.js?v=1795173923"></script>
+  <script src="journal.js?v=1795173923"></script>
+  <script src="more.js?v=1795173923"></script>
+  <script src="app.js?v=1795173923"></script>
 </body>
 </html>

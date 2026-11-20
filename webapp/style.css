@@ -126,14 +126,9 @@ input.switch:checked::after { left: 21px; }
 .card select { width: 100%; max-width: none; }
 .card .btn.secondary { color: var(--text); }
 
-/* ---------- согласие и политика ---------- */
+/* ---------- оговорки, «О данных», кнопки ---------- */
 .disclaimer { border-left: 4px solid var(--warn); }
-.policy-title { font-size: 19px; margin: 0 0 4px; }
-.policy-sec h3 { margin-top: 14px; }
-.policy-sec p { margin: 4px 0; }
-.consent-list li { margin: 7px 0; }
-.consent-check { border-top: 0; margin-top: 8px; }
-.linkbtn { border: 0; background: none; color: var(--link); font: inherit; padding: 6px 0; text-decoration: underline; }
+.data-note { margin: 6px 0; }
 .btn-stack { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .btn.danger { background: var(--bad); color: #fff; }
 .btn:disabled { opacity: .45; }

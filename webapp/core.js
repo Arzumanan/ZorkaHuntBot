@@ -1,9 +1,11 @@
-/* Зорька — Mini App. Ядро: DOM-помощники, API, Telegram-интеграция. Без сборки и внешних библиотек. */
+/* Зорька — Mini App. Ядро: DOM-помощники, локальный API (данные в CloudStorage Telegram, погода из Open-Meteo),
+   Telegram-интеграция. Без сборки и внешних библиотек. */
 (function () {
   "use strict";
   const tg = window.Telegram && window.Telegram.WebApp;
   if (tg) { tg.ready(); tg.expand(); }
-  const API = (window.ZORKA_API_BASE || "").replace(/\/$/, "");
+  const API = (window.ZORKA_API_BASE || "").replace(/\/$/, "");     // нужен только для разового переноса из старой базы
+  const VERSION = ((document.currentScript && document.currentScript.src) || "").split("?")[1] || "";
   const view = document.getElementById("view");
   const state = { me: null, tab: "weather", placeKey: null, cache: {} };
   const Z = { tg, view, state, views: {}, API };
@@ -34,25 +36,35 @@
   };
   Z.fmt = (v, d = 0, unit = "") => (v == null ? "—" : Number(v).toFixed(d) + unit);
   Z.fmtDate = (iso) => { const [y, m, d] = iso.split("-"); return `${d}.${m}.${y}`; };
-  Z.todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+  Z.todayISO = () => ZL.dates.todayIn(state.me && state.me.timezone, new Date());
 
-  // ---------- API ----------
+  // ---------- локальный API ----------
+  // Те же вызовы, что раньше шли на сервер, но выполняются на устройстве (см. lib/api.js). Ошибки: Error с полем code.
+  Z.init = async function init() {
+    const backend = ZL.storage.chooseBackend(window);
+    Z.local = await ZL.api.create({
+      backend,
+      fetch: (...args) => window.fetch(...args),
+      loadJSON: async (name) => {
+        const resp = await window.fetch("data/" + name + (VERSION ? "?" + VERSION : ""));
+        if (!resp.ok) throw new Error("Не удалось загрузить данные приложения (" + name + ").");
+        return resp.json();
+      },
+    });
+    return backend.kind;
+  };
   Z.api = async function api(path, opts) {
-    const headers = { "X-Telegram-Init-Data": (tg && tg.initData) || "" };
-    if (opts && opts.body) headers["Content-Type"] = "application/json";
-    let resp;
-    try { resp = await fetch(API + path, Object.assign({ headers }, opts || {})); }
-    catch (e) { const err = new Error("Нет связи с сервером."); err.code = "network"; throw err; }
-    let data = null;
-    try { data = await resp.json(); } catch (e) { /* не JSON */ }
-    if (!resp.ok) {
-      const err = new Error((data && data.message) || "Ошибка " + resp.status);
-      err.code = (data && data.error) || "http_" + resp.status;
+    if (!Z.local) throw Object.assign(new Error("Хранилище ещё не готово."), { code: "not_ready" });
+    try {
+      return await Z.local.handle(path, (opts && opts.method) || "GET", opts && opts.body ? JSON.parse(opts.body) : {});
+    } catch (e) {
+      const err = new Error(e && e.message ? e.message : "Ошибка");
+      err.code = (e && e.code) || "error";
       throw err;
     }
-    return data;
   };
   Z.post = (path, body) => Z.api(path, { method: "POST", body: JSON.stringify(body || {}) });
+  Z.legacy = () => ({ data: Z.local.data, fetch: (...a) => window.fetch(...a), base: API, initData: (tg && tg.initData) || "" });
 
   // ---------- Telegram: вибро-отклик, подтверждения, уведомления ----------
   const haptic = tg && tg.HapticFeedback;
@@ -83,8 +95,8 @@
   // ---------- общие экраны ----------
   // replaceChildren не разворачивает массивы и печатает false/undefined как текст — разворачиваем сами
   Z.render = (...nodes) => view.replaceChildren(...nodes.flat(Infinity).filter((n) => n != null && n !== false));
-  Z.showLoader = () => Z.render(Z.h("div", { class: "loader" }, "Загрузка…"));
-  Z.showError = (err, retry) => (err && err.code === "consent_required" && Z.showConsent) ? Z.showConsent() : Z.render(Z.h("div", { class: "empty" },
+  Z.showLoader = (text) => Z.render(Z.h("div", { class: "loader" }, text || "Загрузка…"));
+  Z.showError = (err, retry) => Z.render(Z.h("div", { class: "empty" },
     Z.h("p", { class: "error" }, err.message),
     retry && Z.h("button", { class: "btn", onclick: retry }, "Повторить")));
   Z.backBar = (title, onBack) => Z.h("div", { class: "backbar" },
@@ -93,9 +105,8 @@
   // ---------- профиль и выбор места ----------
   const placeSelect = document.getElementById("place-select");
   Z.loadMe = async function loadMe() {
-    state.me = await Z.api("/api/me");
+    state.me = await Z.api("/me");
     const me = state.me;
-    if (!me.consent || !me.consent.accepted) { state.placeCount = 0; Z.syncHeader(); return me; }   // до согласия данных нет
     const options = me.places.map((p) => ({ key: p.key, title: (p.is_default ? "⭐ " : "") + p.name }));
     if (me.location) options.push({ key: "cur", title: "📍 " + (me.location.name || "Моё место") });
     placeSelect.replaceChildren(...options.map((o) => Z.h("option", { value: o.key }, o.title)));
@@ -106,12 +117,10 @@
     return me;
   };
   Z.syncHeader = () => placeSelect.classList.toggle("hidden", state.tab !== "weather" || (state.placeCount || 0) < 2);
-  Z.hasConsent = () => !!(state.me && state.me.consent && state.me.consent.accepted);
   placeSelect.addEventListener("change", () => { state.placeKey = placeSelect.value; Z.go("weather"); });
 
   // ---------- навигация ----------
   Z.go = async function go(tab) {
-    if (state.consentPending) return;        // пока нет согласия, вкладки недоступны
     state.tab = tab;
     document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     Z.syncHeader();

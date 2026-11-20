@@ -11,7 +11,7 @@ from aiogram.client.session.base import BaseSession
 from aiogram.methods import SendMessage
 from aiogram.types import Chat, Message, ReplyKeyboardRemove
 
-from bot.config import load_config
+from bot.config import Config, load_config
 from bot.keyboards import LEGACY_BUTTONS
 from bot.main import COMMANDS, build_dispatcher
 
@@ -127,28 +127,47 @@ def test_dispatcher_has_no_removed_routers():
     assert names == {"common"}
 
 
+async def test_start_says_data_lives_in_users_telegram_cloud(h):
+    sent = await h.say("/start")
+    assert "облаке Telegram" in sent[0].text and "согласи" not in sent[0].text.lower()
+
+
 # ---------- конфиг ----------
 
 def test_config_webapp_defaults(monkeypatch):
-    for key in ("WEBAPP_HOST", "WEBAPP_PORT", "WEBAPP_URL", "WEBAPP_DEV_USER_ID", "WEBAPP_CORS_ORIGIN"):
+    for key in ("WEBAPP_HOST", "WEBAPP_PORT", "WEBAPP_URL", "WEBAPP_CORS_ORIGIN", "DB_PATH"):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("BOT_TOKEN", "1:x")
     monkeypatch.setattr("bot.config.load_dotenv", lambda *a, **k: None)
     c = load_config()
-    assert (c.webapp_host, c.webapp_port, c.webapp_url, c.webapp_dev_user_id, c.webapp_cors_origin) == (
-        "127.0.0.1", 8080, None, None, None)
+    assert (c.webapp_host, c.webapp_port, c.webapp_url, c.webapp_cors_origin) == ("127.0.0.1", 8080, None, None)
+    assert c.db_path.endswith("zorka.db")
 
 
 def test_config_webapp_values_and_validation(monkeypatch):
     monkeypatch.setenv("BOT_TOKEN", "1:x")
     monkeypatch.setattr("bot.config.load_dotenv", lambda *a, **k: None)
-    monkeypatch.setenv("WEBAPP_URL", "https://a.trycloudflare.com/")
+    monkeypatch.setenv("WEBAPP_URL", "https://arzumanan.github.io/ZorkaHuntBot/")
     monkeypatch.setenv("WEBAPP_PORT", "9090")
-    monkeypatch.setenv("WEBAPP_DEV_USER_ID", "123")
+    monkeypatch.setenv("WEBAPP_CORS_ORIGIN", "https://arzumanan.github.io")
     c = load_config()
-    assert (c.webapp_url, c.webapp_port, c.webapp_dev_user_id) == ("https://a.trycloudflare.com", 9090, 123)
+    assert (c.webapp_url, c.webapp_port, c.webapp_cors_origin) == (
+        "https://arzumanan.github.io/ZorkaHuntBot", 9090, "https://arzumanan.github.io")
     monkeypatch.setenv("WEBAPP_URL", "http://insecure.example.com")     # Telegram требует HTTPS
     monkeypatch.setenv("WEBAPP_PORT", "не число")
-    monkeypatch.setenv("WEBAPP_DEV_USER_ID", "abc")
     c = load_config()
-    assert (c.webapp_url, c.webapp_port, c.webapp_dev_user_id) == (None, 8080, None)
+    assert (c.webapp_url, c.webapp_port) == (None, 8080)
+
+
+def test_config_has_no_personal_data_settings():
+    from dataclasses import fields
+
+    names = {f.name for f in fields(Config)}
+    assert not {"policy_operator", "policy_contact", "webapp_dev_user_id"} & names
+
+
+def test_bot_package_has_no_database_or_broadcast_code():
+    import importlib.util
+
+    for mod in ("bot.db", "bot.policy", "bot.services", "bot.web.api"):
+        assert importlib.util.find_spec(mod) is None, mod

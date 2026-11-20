@@ -36,7 +36,7 @@
 
   Z.views.seasons = async function renderSeasons() {
     try {
-      const data = await Z.api("/api/seasons");
+      const data = await Z.api("/seasons");
       if (state.tab !== "seasons") return;
       draw(data);
     } catch (e) {

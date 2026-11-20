@@ -139,7 +139,7 @@
   Z.views.weather = async function renderWeather() {
     const q = state.placeKey ? "?place_id=" + encodeURIComponent(state.placeKey) : "";
     try {
-      const data = await Z.api("/api/forecast" + q);
+      const data = await Z.api("/forecast" + q);
       if (state.tab !== "weather") return;
       draw(data);
     } catch (e) {

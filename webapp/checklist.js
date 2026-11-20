@@ -1,7 +1,8 @@
-/* Вкладка «Чек-лист»: вид охоты, категории, отметки (в БД), свои пункты, сброс, подсказки по погоде. */
+/* Вкладка «Чек-лист»: вид охоты, категории, отметки (в хранилище Telegram), свои пункты, сброс, подсказки по погоде. */
 (function () {
   "use strict";
   const { h, state, view } = Z;
+  let currentHints = [];      // подсказки по погоде подгружаются отдельно, чтобы чек-лист открывался без ожидания сети
 
   function progress(done, total) {
     const pct = total ? Math.round((done / total) * 100) : 0;
@@ -33,10 +34,9 @@
     async function doReset() {
       if (!(await Z.confirm("Снять все отметки в этом чек-листе? Свои пункты останутся."))) return;
       try {
-        const next = await Z.post("/api/checklist/reset");
+        const next = await Z.post("/checklist/reset");
         Z.haptic.ok();
         Z.toast("Отметки сброшены");
-        next.hints = data.hints;
         draw(next);
       } catch (e) { Z.toast(e.message, true); }
     }
@@ -49,7 +49,7 @@
       Z.haptic.select();
       recount();
       try {
-        const res = await Z.post("/api/checklist/toggle", { id: item.id });
+        const res = await Z.post("/checklist/toggle", { id: item.id });
         if (res.checked !== item.checked) { item.checked = res.checked; row.classList.toggle("done", res.checked); box.checked = res.checked; recount(); }
       } catch (e) {
         item.checked = was; row.classList.toggle("done", was); box.checked = was; recount();
@@ -60,7 +60,7 @@
     async function removeItem(cat, item, row) {
       if (!(await Z.confirm(`Удалить свой пункт «${item.text}»?`))) return;
       try {
-        await Z.post("/api/checklist/delete", { id: item.id });
+        await Z.post("/checklist/delete", { id: item.id });
         cat.items = cat.items.filter((i) => i.id !== item.id);
         row.remove();
         Z.haptic.tap();
@@ -88,7 +88,7 @@
         const text = input.value.trim();
         if (!text) return;
         try {
-          const res = await Z.post("/api/checklist/add", { category: cat.code, text });
+          const res = await Z.post("/checklist/add", { category: cat.code, text });
           cat.items.push(res.item);
           list.append(itemRow(cat, res.item));
           input.value = "";
@@ -110,8 +110,7 @@
       if (code === data.hunt_type) return;
       Z.haptic.select();
       try {
-        const next = await Z.post("/api/checklist/type", { hunt_type: code });
-        next.hints = data.hints;
+        const next = await Z.post("/checklist/type", { hunt_type: code });
         draw(next);
       } catch (e) { Z.toast(e.message, true); }
     }
@@ -122,8 +121,7 @@
         h("div", { class: "muted" }, "Вид охоты:"), types,
         h("div", { style: "margin-top:10px" }, topCount),
         h("div", { class: "bar big" }, topBar)),
-      data.hints.length ? h("div", { class: "card notice" }, h("h3", {}, "Подсказки по погоде"),
-        data.hints.map((t) => h("div", { class: "hint" }, t))) : null,
+      hintsCard(currentHints),
       data.categories.map(categoryCard),
       h("div", { style: "text-align:center;margin:8px 0" }, resetBtn),
       state.me && !state.me.has_place
@@ -132,9 +130,20 @@
     recount();
   }
 
+  function hintsCard(hints) {
+    return h("div", { class: "card notice" + (hints.length ? "" : " hidden"), id: "hints-box" },
+      h("h3", {}, "Подсказки по погоде"), hints.map((t) => h("div", { class: "hint" }, t)));
+  }
+
   Z.views.checklist = async function renderChecklist() {
-    const data = await Z.api("/api/checklist");
+    currentHints = [];
+    const data = await Z.api("/checklist");
     if (state.tab !== "checklist") return;
     draw(data);
+    Z.api("/checklist/hints").then((res) => {           // погода нужна только для подсказок, поэтому не блокирует экран
+      currentHints = res.hints || [];
+      const box = document.getElementById("hints-box");
+      if (state.tab === "checklist" && box) box.replaceWith(hintsCard(currentHints));
+    }).catch(() => { /* без подсказок */ });
   };
 })();

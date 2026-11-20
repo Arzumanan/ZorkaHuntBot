@@ -53,7 +53,7 @@
     async function save() {
       msg.textContent = "";
       try {
-        await Z.post("/api/journal", { date: date.value, place: place.value, species: species.value, note: note.value });
+        await Z.post("/journal", { date: date.value, place: place.value, species: species.value, note: note.value });
         Z.haptic.ok();
         Z.toast("Записано в журнал ✅");
         Z.go("journal");
@@ -62,7 +62,7 @@
 
     async function remove(rec) {
       if (!(await Z.confirm(`Удалить запись «${rec.species}», ${fmtDate(rec.date)}?`))) return;
-      try { await Z.post("/api/journal/delete", { id: rec.id }); Z.haptic.tap(); Z.go("journal"); }
+      try { await Z.post("/journal/delete", { id: rec.id }); Z.haptic.tap(); Z.go("journal"); }
       catch (e) { Z.toast(e.message, true); }
     }
 
@@ -83,8 +83,8 @@
   }
 
   Z.views.journal = async function renderJournal() {
-    const journal = await Z.api("/api/journal");
-    const stats = journal.count > 0 ? await Z.api("/api/stats") : null;   // статистика — только если журнал ведётся
+    const journal = await Z.api("/journal");
+    const stats = journal.stats;      // статистика приходит вместе с журналом и только если записи есть
     if (state.tab !== "journal") return;
     draw(journal, stats);
   };

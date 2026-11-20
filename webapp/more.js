@@ -1,4 +1,4 @@
-/* Вкладка «Ещё»: угодья, регион, место, утренняя рассылка. Плюс общие экраны выбора региона и города. */
+/* Вкладка «Ещё»: угодья, регион, место, часовой пояс, «О данных». Плюс общие экраны выбора региона и города. */
 (function () {
   "use strict";
   const { h, state, view } = Z;
@@ -7,7 +7,7 @@
   Z.views.regionPicker = async function regionPicker(afterSave) {
     Z.showLoader();
     let regions;
-    try { regions = await Z.api("/api/regions"); } catch (e) { return Z.showError(e, () => regionPicker(afterSave)); }
+    try { regions = await Z.api("/regions"); } catch (e) { return Z.showError(e, () => regionPicker(afterSave)); }
     const list = h("div", {});
     const input = h("input", { type: "text", placeholder: "Поиск региона…", autocomplete: "off" });
     const norm = (t) => t.toLowerCase().replace(/ё/g, "е");
@@ -15,7 +15,7 @@
       const q = norm(input.value.trim());
       list.replaceChildren(...regions.filter((r) => norm(r.name).includes(q)).slice(0, 40).map((r) =>
         h("button", { class: "region-item", onclick: async () => {
-          try { await Z.post("/api/region", { code: r.code }); Z.haptic.ok(); await Z.loadMe(); afterSave(); }
+          try { await Z.post("/region", { code: r.code }); Z.haptic.ok(); await Z.loadMe(); afterSave(); }
           catch (e) { Z.toast(e.message, true); }
         } }, (r.verified ? "✅ " : "") + r.name)));
     };
@@ -33,7 +33,7 @@
     const go = async () => {
       msg.textContent = "";
       if (!input.value.trim()) return;
-      try { await Z.post("/api/location", { city: input.value }); Z.haptic.ok(); await Z.loadMe(); afterSave(); }
+      try { await Z.post("/location", { city: input.value }); Z.haptic.ok(); await Z.loadMe(); afterSave(); }
       catch (e) { msg.textContent = e.message; }
     };
     input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
@@ -51,7 +51,7 @@
       const rename = async () => {
         const name = nameInput.value.trim();
         if (!name || name === p.name) { nameInput.classList.add("hidden"); title.classList.remove("hidden"); return; }
-        try { await Z.post("/api/places/update", { id: p.id, name }); Z.haptic.ok(); await reload(); }
+        try { await Z.post("/places/update", { id: p.id, name }); Z.haptic.ok(); await reload(); }
         catch (e) { Z.toast(e.message, true); }
       };
       nameInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") rename(); });
@@ -61,14 +61,14 @@
           h("div", { class: "muted" }, `${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}` + (p.is_default ? " · по умолчанию" : ""))),
         h("div", { class: "place-actions" },
           !p.is_default && h("button", { class: "icon-btn", "aria-label": "Сделать основным", title: "Сделать основным", onclick: async () => {
-            try { await Z.post("/api/places/update", { id: p.id, is_default: true }); Z.haptic.select(); await reload(); } catch (e) { Z.toast(e.message, true); }
+            try { await Z.post("/places/update", { id: p.id, is_default: true }); Z.haptic.select(); await reload(); } catch (e) { Z.toast(e.message, true); }
           } }, "⭐"),
           h("button", { class: "icon-btn", "aria-label": "Переименовать", title: "Переименовать", onclick: () => {
             title.classList.add("hidden"); nameInput.classList.remove("hidden"); nameInput.focus(); nameInput.select();
           } }, "✏️"),
           h("button", { class: "icon-btn del", "aria-label": "Удалить угодье", title: "Удалить", onclick: async () => {
             if (!(await Z.confirm(`Удалить угодье «${p.name}»?`))) return;
-            try { await Z.post("/api/places/delete", { id: p.id }); Z.haptic.tap(); await reload(); } catch (e) { Z.toast(e.message, true); }
+            try { await Z.post("/places/delete", { id: p.id }); Z.haptic.tap(); await reload(); } catch (e) { Z.toast(e.message, true); }
           } }, "🗑")));
     });
 
@@ -93,7 +93,7 @@
       if (mode === "city") body.city = city.value;
       else { body.lat = parseFloat(lat.value.replace(",", ".")); body.lon = parseFloat(lon.value.replace(",", ".")); }
       if (mode === "coords" && (Number.isNaN(body.lat) || Number.isNaN(body.lon))) { msg.textContent = "Введите широту и долготу числами."; return; }
-      try { await Z.post("/api/places", body); Z.haptic.ok(); Z.toast("Угодье добавлено"); await reload(); }
+      try { await Z.post("/places", body); Z.haptic.ok(); Z.toast("Угодье добавлено"); await reload(); }
       catch (e) { msg.textContent = e.message; }
     };
     const full = places.length >= max;
@@ -106,26 +106,17 @@
         h("div", { style: "margin:8px 0" }, name), msg, h("button", { class: "btn", onclick: add }, "Добавить")));
   }
 
-  // ---------- рассылка ----------
-  function digestCard(st, me) {
-    const sw = h("input", { type: "checkbox", checked: st.subscribed, class: "switch", "aria-label": "Утренняя рассылка" });
-    const time = h("input", { type: "time", value: st.send_time });
+  // ---------- часовой пояс (определяет «сегодня» в журнале и в сроках охоты) ----------
+  function timezoneCard(st) {
     const tz = h("select", {}, st.timezones.map((t) => h("option", { value: t.code, selected: t.code === st.timezone }, t.name)));
-    const save = async (patch, revert) => {
-      try { await Z.post("/api/settings", patch); Z.haptic.ok(); Z.toast("Сохранено"); await Z.loadMe(); }
-      catch (e) { Z.toast(e.message, true); if (revert) revert(); }
-    };
-    sw.addEventListener("change", () => save({ subscribed: sw.checked }, () => { sw.checked = !sw.checked; }));
-    time.addEventListener("change", () => { if (time.value) save({ send_time: time.value }, () => { time.value = st.send_time; }); });
-    tz.addEventListener("change", () => save({ timezone: tz.value }, () => { tz.value = st.timezone; }));
+    tz.addEventListener("change", async () => {
+      try { await Z.post("/settings", { timezone: tz.value }); Z.haptic.ok(); Z.toast("Сохранено"); await Z.loadMe(); }
+      catch (e) { Z.toast(e.message, true); tz.value = st.timezone; }
+    });
     return h("div", { class: "card" },
-      h("h3", {}, "🔔 Утренняя рассылка"),
-      h("label", { class: "kv switch-row" }, h("span", {}, "Присылать прогноз"), sw),
-      h("div", { class: "muted" }, "По субботам и воскресеньям, только если в вашем регионе открыт какой-то сезон. Сообщение придёт в чат с ботом."),
-      !st.region ? h("div", { class: "error", style: "margin-top:4px" }, "Выберите регион в разделе «Регион» — без него сезон не определить.") : null,
-      h("div", { class: "field" }, h("span", { class: "muted" }, "Время отправки"), time),
-      h("div", { class: "field" }, h("span", { class: "muted" }, "Часовой пояс"), tz),
-      h("div", { class: "muted" }, "Если сообщения не приходят, откройте чат с ботом и нажмите /start."));
+      h("h3", {}, "🕒 Часовой пояс"),
+      h("div", { class: "field" }, tz),
+      h("div", { class: "muted" }, "Нужен, чтобы правильно определять «сегодня» в журнале и в сроках охоты. Прогноз погоды всегда считается по поясу выбранного места."));
   }
 
   function regionCard(st) {
@@ -147,29 +138,50 @@
       } }, me.location ? "Сменить место" : "Указать место"));
   }
 
-  function privacyCard(me) {
-    const c = me.consent || {};
-    const when = c.accepted_at ? new Date(c.accepted_at).toLocaleString("ru-RU") : "";
+  // ---------- «О данных» ----------
+  const STORAGE_NOTE = {
+    telegram: "Сейчас данные лежат в облачном хранилище вашего Telegram ✅",
+    local: "Вы открыли приложение вне Telegram, поэтому данные лежат в памяти этого браузера. В самом Telegram они хранятся в облаке Telegram.",
+    memory: "⚠️ Хранилище недоступно: данные пропадут при закрытии страницы.",
+  };
+  function dataCard(me, usage) {
+    const site = "https://open-meteo.com";
     return h("div", { class: "card" },
-      h("h3", {}, "🔒 Конфиденциальность"),
-      h("div", { class: "muted" }, c.accepted ? `Вы приняли политику (версия ${c.version})${when ? " " + when : ""}.` : "Политика не принята."),
-      h("div", { class: "btn-stack" },
-        h("button", { class: "btn secondary", onclick: () => Z.views.policy(() => Z.go("more")) }, "Политика конфиденциальности"),
-        h("button", { class: "btn danger", onclick: () => Z.deleteAccount() }, "🗑 Удалить мои данные")),
-      h("div", { class: "muted", style: "margin-top:6px" }, "Удаление стирает всё, что приложение о вас хранит, и отзывает согласие."));
+      h("h3", {}, "🔒 О данных"),
+      h("div", { class: "data-note" }, "Всё, что вы вводите (регион, угодья с координатами, чек-лист, журнал, настройки), хранится в облачном хранилище вашего Telegram (CloudStorage) и на вашем устройстве. Сервер автора ничего не хранит и данных о вас не получает."),
+      h("div", { class: "data-note" }, "Для прогноза приложение отправляет координаты выбранного места (а при поиске ещё и название города) напрямую в сервис погоды Open-Meteo (",
+        h("a", { href: site, onclick: (ev) => Z.openLink(ev, site) }, "open-meteo.com"),
+        "). Он находится за пределами РФ. Больше никому данные не передаются."),
+      h("div", { class: "muted" }, STORAGE_NOTE[me.storage] || STORAGE_NOTE.memory),
+      usage ? h("div", { class: "muted" }, `Занято ключей хранилища: ${usage.keys} из ${usage.max_keys}.`) : null,
+      h("div", { class: "btn-stack" }, h("button", { class: "btn danger", onclick: () => Z.deleteAll() }, "🗑 Удалить все данные")),
+      h("div", { class: "muted", style: "margin-top:6px" }, "Стирает всё, что приложение сохранило: угодья, регион, чек-лист, журнал, настройки."));
   }
+
+  Z.deleteAll = async function deleteAll() {
+    if (!(await Z.confirm("Удалить все ваши данные безвозвратно: угодья, регион, чек-лист, журнал и настройки? Это нельзя отменить."))) return;
+    try {
+      await Z.post("/data/delete-all");
+      await ZL.migrate.cleanupServer(Z.legacy());          // заодно стираем старую копию на ПК автора, если она там ещё есть
+      Z.haptic.ok();
+      Z.toast("Все данные удалены");
+      state.placeKey = null;
+      await Z.loadMe();
+      Z.go("more");
+    } catch (e) { Z.toast(e.message, true); }
+  };
 
   Z.views.more = async function renderMore() {
     await Z.loadMe();
-    const [places, settings] = await Promise.all([Z.api("/api/places"), Z.api("/api/settings")]);
+    const [places, settings, usage] = await Promise.all([Z.api("/places"), Z.api("/settings"), Z.api("/storage").catch(() => null)]);
     if (state.tab !== "more") return;
     const reload = async () => { await Z.go("more"); };
     Z.render(
       placesCard(places.places, places.max, reload),
       regionCard(settings),
       locationCard(state.me),
-      digestCard(settings, state.me),
-      privacyCard(state.me),
+      timezoneCard(settings),
+      dataCard(state.me, usage),
       h("div", { class: "card muted" },
         "Зорька — справочный помощник. Оценки активности и сроки охоты ориентировочные: точные даты уточняйте в региональном охотуправлении."));
   };
