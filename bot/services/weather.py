@@ -57,6 +57,8 @@ class DayForecast:
     dusk: WindowStats
     pressure_change: float | None  # гПа: на рассвете минус 12 ч назад
     temp_change: float | None = None  # °C: на рассвете минус то же время сутки назад
+    snow_before_dawn: float | None = None  # мм осадков при t≤0,5°C за 10 ч до рассвета (свежий снег, «пороша»)
+    snow_before_dusk: float | None = None  # то же за 10 ч до заката
 
 
 def wind_direction_name(degrees: float | None) -> str:
@@ -116,6 +118,23 @@ def _window(hourly: dict[str, dict[str, float | None]], center: datetime, before
     )
 
 
+SNOW_MAX_TEMP = 0.5  # осадки при такой температуре и ниже считаем снегом
+
+
+def _snow_before(hourly: dict[str, dict[str, float | None]], moment: datetime, hours: int = 10) -> float | None:
+    """Сумма осадков (мм воды) за `hours` часов до момента, считая только часы с t ≤ 0,5 °C."""
+    base = moment.replace(minute=0, second=0, microsecond=0)
+    total, seen = 0.0, False
+    for back in range(1, hours + 1):
+        point = hourly.get((base - timedelta(hours=back)).strftime("%Y-%m-%dT%H:%M"))
+        if not point or point.get("precipitation") is None or point.get("temperature") is None:
+            continue
+        seen = True
+        if point["temperature"] <= SNOW_MAX_TEMP:
+            total += point["precipitation"]
+    return total if seen else None
+
+
 def parse_forecast(raw: dict[str, Any]) -> dict[date, DayForecast]:
     """Разбирает ответ Open-Meteo (hourly + daily sunrise/sunset) в прогноз по датам."""
     try:
@@ -165,6 +184,7 @@ def parse_forecast(raw: dict[str, Any]) -> dict[date, DayForecast]:
         result[date.fromisoformat(d)] = DayForecast(
             day=date.fromisoformat(d), sunrise=sunrise, sunset=sunset,
             dawn=dawn, dusk=dusk, pressure_change=change, temp_change=t_change,
+            snow_before_dawn=_snow_before(hourly, sunrise), snow_before_dusk=_snow_before(hourly, sunset),
         )
     return result
 

@@ -11,18 +11,26 @@
   <header id="header">
     <div class="brand">🌄 Зорька</div>
     <select id="place-select" class="hidden" aria-label="Угодье"></select>
-    <button id="settings-btn" class="icon-btn" aria-label="Настройки">⚙️</button>
   </header>
-  <nav id="tabs" class="tabs">
-    <button data-tab="forecast" class="active">Прогноз</button>
-    <button data-tab="activity">Активность</button>
-    <button data-tab="seasons">Сезоны</button>
-  </nav>
   <main id="view"><div class="loader">Загрузка…</div></main>
+  <nav id="nav" class="nav" aria-label="Разделы">
+    <button data-tab="weather" class="active"><span class="ico">🌦</span><span>Прогноз</span></button>
+    <button data-tab="seasons"><span class="ico">📅</span><span>Сезоны</span></button>
+    <button data-tab="checklist"><span class="ico">🎒</span><span>Чек-лист</span></button>
+    <button data-tab="journal"><span class="ico">📖</span><span>Журнал</span></button>
+    <button data-tab="more"><span class="ico">⚙️</span><span>Ещё</span></button>
+  </nav>
+  <div id="toast" class="toast hidden" role="status"></div>
   <script>
     // Если статика лежит на другом домене, укажите адрес API, например: window.ZORKA_API_BASE = "https://api.example.com";
     window.ZORKA_API_BASE = window.ZORKA_API_BASE || "";
   </script>
+  <script src="/static/core.js"></script>
+  <script src="/static/weather.js"></script>
+  <script src="/static/seasons.js"></script>
+  <script src="/static/checklist.js"></script>
+  <script src="/static/journal.js"></script>
+  <script src="/static/more.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

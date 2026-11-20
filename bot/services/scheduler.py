@@ -11,6 +11,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError
 
 from ..db import Database, Settings
+from ..keyboards import webapp_markup
 from .forecast_text import format_forecast
 from .locations import list_spots, pick_spot
 from .seasons import get_region, open_entries, season_open
@@ -38,7 +39,8 @@ async def build_morning_message(db: Database, http: aiohttp.ClientSession, setti
     return f"{header}\n\n{forecast}"
 
 
-async def process_user(bot: Bot, db: Database, http: aiohttp.ClientSession, s: Settings, now_utc: datetime) -> bool:
+async def process_user(bot: Bot, db: Database, http: aiohttp.ClientSession, s: Settings, now_utc: datetime,
+                       webapp_url: str | None = None) -> bool:
     """Отправляет рассылку одному пользователю, если пора. Возвращает True, если отправлено."""
     send, today = decide_send(now_utc, s.timezone, s.send_time, s.last_sent,
                               lambda d: season_open(s.region_code, d))
@@ -48,7 +50,7 @@ async def process_user(bot: Bot, db: Database, http: aiohttp.ClientSession, s: S
     if text is None:
         return False
     try:
-        await bot.send_message(s.user_id, text)
+        await bot.send_message(s.user_id, text, reply_markup=webapp_markup(webapp_url))
     except TelegramForbiddenError:  # пользователь заблокировал бота
         await db.set_subscribed(s.user_id, False)
         log.info("Пользователь %s заблокировал бота — рассылка выключена", s.user_id)
@@ -57,14 +59,15 @@ async def process_user(bot: Bot, db: Database, http: aiohttp.ClientSession, s: S
     return True
 
 
-async def run_scheduler(bot: Bot, db: Database, http: aiohttp.ClientSession, interval: int = CHECK_INTERVAL) -> None:
+async def run_scheduler(bot: Bot, db: Database, http: aiohttp.ClientSession, webapp_url: str | None = None,
+                        interval: int = CHECK_INTERVAL) -> None:
     log.info("Планировщик рассылки запущен")
     while True:
         try:
             now_utc = datetime.now(timezone.utc)
             for s in await db.list_subscribers():
                 try:
-                    await process_user(bot, db, http, s, now_utc)
+                    await process_user(bot, db, http, s, now_utc, webapp_url)
                 except WeatherError:
                     log.warning("Погода недоступна для %s, повторим на следующем шаге", s.user_id)
                 except Exception:  # один пользователь не должен ронять цикл

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timezone
 
 import aiohttp
 from aiohttp import web
@@ -11,21 +10,19 @@ from aiohttp import web
 from ..config import BASE_DIR, Config
 from ..db import Database
 from ..services import weather as weather_service
-from ..services.locations import Spot, list_spots, pick_spot
 from ..services.seasons import get_region, is_verified, load_regions, seasons_payload
-from ..services.subscription import local_now
 from .auth import InitDataError, validate_init_data
+from .helpers import (
+    CITY_MAX, NO_PLACE, forecast_raw, get_db, get_weather, json_error, place_dict, read_json, user_today,
+    valid_coord,
+)
 from .payloads import forecast_payload
+from . import routes_user
 
 log = logging.getLogger(__name__)
 
 WEBAPP_DIR = BASE_DIR / "webapp"
 INIT_HEADER = "X-Telegram-Init-Data"
-CITY_MAX = 80
-
-
-def json_error(status: int, code: str, message: str) -> web.Response:
-    return web.json_response({"error": code, "message": message}, status=status)
 
 
 # ---------- middleware ----------
@@ -79,42 +76,6 @@ async def error_middleware(request: web.Request, handler):
 
 # ---------- helpers ----------
 
-def _db(request) -> Database:
-    return request.app["db"]
-
-
-def _weather(request):
-    return request.app["weather"]
-
-
-async def _resolve_spot(request: web.Request) -> Spot | None:
-    spots = await list_spots(_db(request), request["user_id"])
-    key = request.query.get("place_id")
-    if key and key != "cur" and key.isdigit():
-        key = f"p{key}"
-    return pick_spot(spots, key or None)
-
-
-async def _user_today(request: web.Request):
-    settings = await _db(request).get_settings(request["user_id"])
-    return local_now(datetime.now(timezone.utc), settings.timezone).date()
-
-
-async def _forecast_raw(request: web.Request):
-    spot = await _resolve_spot(request)
-    if spot is None:
-        return None, None
-    raw = await _weather(request).fetch_forecast(request.app["http"], spot.latitude, spot.longitude)
-    return spot, raw
-
-
-def _place_dict(spot: Spot) -> dict:
-    return {"key": spot.key, "title": spot.title, "lat": spot.latitude, "lon": spot.longitude}
-
-
-NO_PLACE = ("no_place", "Сначала укажите место: найдите город или добавьте угодье.")
-
-
 # ---------- handlers ----------
 
 async def health(request: web.Request) -> web.Response:
@@ -122,7 +83,7 @@ async def health(request: web.Request) -> web.Response:
 
 
 async def me(request: web.Request) -> web.Response:
-    db, uid = _db(request), request["user_id"]
+    db, uid = get_db(request), request["user_id"]
     settings = await db.get_settings(uid)
     region = get_region(settings.region_code)
     places = await db.list_places(uid)
@@ -132,6 +93,8 @@ async def me(request: web.Request) -> web.Response:
         "region": ({"code": region.code, "name": region.name, "verified": is_verified(region.code)} if region else None),
         "timezone": settings.timezone,
         "subscribed": settings.subscribed,
+        "send_time": settings.send_time,
+        "hunt_type": settings.hunt_type,
         "places": [{"id": p.id, "key": f"p{p.id}", "name": p.name, "lat": p.latitude, "lon": p.longitude,
                     "is_default": p.is_default} for p in places],
         "location": ({"lat": loc.latitude, "lon": loc.longitude, "name": loc.place} if loc else None),
@@ -140,27 +103,27 @@ async def me(request: web.Request) -> web.Response:
 
 
 async def forecast(request: web.Request) -> web.Response:
-    spot, raw = await _forecast_raw(request)
+    spot, raw = await forecast_raw(request)
     if spot is None:
         return json_error(409, *NO_PLACE)
-    return web.json_response(forecast_payload(raw, _place_dict(spot)))
+    return web.json_response(forecast_payload(raw, place_dict(spot)))
 
 
 async def activity(request: web.Request) -> web.Response:
-    spot, raw = await _forecast_raw(request)
+    spot, raw = await forecast_raw(request)
     if spot is None:
         return json_error(409, *NO_PLACE)
-    payload = forecast_payload(raw, _place_dict(spot))
-    slim = [{"date": d["date"], "title": d["title"], "label": d["label"], "moon": d["moon"],
+    payload = forecast_payload(raw, place_dict(spot))
+    slim = [{"date": d["date"], "title": d["title"], "label": d["label"], "heading": d["heading"], "moon": d["moon"],
              "sunrise": d["sunrise"], "sunset": d["sunset"], "activity": d["activity"]} for d in payload["days"]]
     return web.json_response({"place": payload["place"], "days": slim, "disclaimer": payload["activity_disclaimer"]})
 
 
 async def seasons(request: web.Request) -> web.Response:
-    settings = await _db(request).get_settings(request["user_id"])
+    settings = await get_db(request).get_settings(request["user_id"])
     if get_region(settings.region_code) is None:
         return json_error(409, "no_region", "Сначала выберите регион.")
-    return web.json_response(seasons_payload(settings.region_code, await _user_today(request)))
+    return web.json_response(seasons_payload(settings.region_code, await user_today(request)))
 
 
 async def regions(request: web.Request) -> web.Response:
@@ -168,37 +131,21 @@ async def regions(request: web.Request) -> web.Response:
                               for r in load_regions()])
 
 
-async def read_json(request: web.Request) -> dict:
-    try:
-        data = await request.json()
-    except Exception:
-        raise web.HTTPBadRequest(text='{"error":"bad_json"}', content_type="application/json")
-    if not isinstance(data, dict):
-        raise web.HTTPBadRequest(text='{"error":"bad_json"}', content_type="application/json")
-    return data
-
-
 async def set_region(request: web.Request) -> web.Response:
     data = await read_json(request)
     region = get_region(str(data.get("code", "")))
     if region is None:
         return json_error(400, "unknown_region", "Такого региона нет в списке.")
-    await _db(request).set_region(request["user_id"], region.code)
+    await get_db(request).set_region(request["user_id"], region.code)
     return web.json_response({"ok": True, "region": {"code": region.code, "name": region.name,
                                                      "verified": is_verified(region.code)}})
 
 
-def _valid_coord(value, lo, hi) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return None
-    return float(value) if lo <= value <= hi else None
-
-
 async def set_location(request: web.Request) -> web.Response:
     data = await read_json(request)
-    db, uid = _db(request), request["user_id"]
+    db, uid = get_db(request), request["user_id"]
     if "lat" in data or "lon" in data:
-        lat, lon = _valid_coord(data.get("lat"), -90, 90), _valid_coord(data.get("lon"), -180, 180)
+        lat, lon = valid_coord(data.get("lat"), -90, 90), valid_coord(data.get("lon"), -180, 180)
         if lat is None or lon is None:
             return json_error(400, "bad_coordinates", "Некорректные координаты.")
         name = str(data.get("name") or "по координатам")[:80]
@@ -206,7 +153,7 @@ async def set_location(request: web.Request) -> web.Response:
         city = re.sub(r"\s+", " ", str(data.get("city", ""))).strip()
         if not city or len(city) > CITY_MAX:
             return json_error(400, "bad_city", "Введите название города.")
-        place = await _weather(request).geocode_city(request.app["http"], city)
+        place = await get_weather(request).geocode_city(request.app["http"], city)
         if place is None:
             return json_error(404, "city_not_found", "Не нашёл такой город. Проверьте написание.")
         lat, lon, name = place.latitude, place.longitude, place.title
@@ -247,6 +194,7 @@ def create_app(config: Config, db: Database, http: aiohttp.ClientSession, weathe
     app.router.add_get("/api/regions", regions)
     app.router.add_post("/api/region", set_region)
     app.router.add_post("/api/location", set_location)
+    routes_user.register(app)
     app.router.add_static("/static/", WEBAPP_DIR, show_index=False)
     return app
 

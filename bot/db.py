@@ -249,6 +249,11 @@ class Database:
         await self.conn.commit()
         return True
 
+    async def rename_place(self, user_id: int, place_id: int, name: str) -> bool:
+        cur = await self.conn.execute("UPDATE places SET name=? WHERE id=? AND user_id=?", (name, place_id, user_id))
+        await self.conn.commit()
+        return cur.rowcount > 0
+
     async def delete_place(self, user_id: int, place_id: int) -> bool:
         place = await self.get_place(user_id, place_id)
         if place is None:

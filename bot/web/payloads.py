@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ..services.activity import DISCLAIMER as ACTIVITY_DISCLAIMER, GROUPS, estimate_activity
-from ..services.forecast_text import MONTHS, activity_inputs, conditions_for
+from ..services.forecast_text import MONTHS, activity_inputs, conditions_for, day_heading
 from ..services.moon import moon_phase
 from ..services.scoring import score_day
 from ..services.weather import (
@@ -38,13 +38,14 @@ def activity_block(day: DayForecast) -> list[dict]:
     return result
 
 
-def day_payload(raw: dict[str, Any], day: DayForecast, label: str) -> dict:
+def day_payload(raw: dict[str, Any], day: DayForecast, label: str, today=None) -> dict:
     moon = moon_phase(day.day)
     score = score_day(conditions_for(day))
     return {
         "date": day.day.isoformat(),
         "title": f"{day.day.day} {MONTHS[day.day.month - 1]}",
         "label": label,
+        "heading": day_heading(day.day, today or day.day),
         "sunrise": day.sunrise.strftime("%H:%M"),
         "sunset": day.sunset.strftime("%H:%M"),
         "sunrise_hour": day.sunrise.hour + day.sunrise.minute / 60,
@@ -68,5 +69,5 @@ def forecast_payload(raw: dict[str, Any], place: dict, now_utc: datetime | None 
     for offset, label in ((0, "today"), (1, "tomorrow")):
         d = today + timedelta(days=offset)
         if d in days:
-            out.append(day_payload(raw, days[d], label))
+            out.append(day_payload(raw, days[d], label, today))
     return {"place": place, "today": today.isoformat(), "days": out, "activity_disclaimer": ACTIVITY_DISCLAIMER}

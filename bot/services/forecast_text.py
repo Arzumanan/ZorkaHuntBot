@@ -8,8 +8,16 @@ from .moon import moon_phase
 from .scoring import Conditions, Score, score_day
 from .weather import DayForecast, WindowStats, hpa_to_mmhg, wind_direction_name
 
+DAY_NAMES = {0: "Сегодня", 1: "Завтра"}
 MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля",
           "августа", "сентября", "октября", "ноября", "декабря"]
+
+
+def day_heading(day: date, today: date) -> str:
+    """«Сегодня, 20 ноября» / «Завтра, 21 ноября»; для прочих дат — «22 ноября»."""
+    date_text = f"{day.day} {MONTHS[day.month - 1]}"
+    name = DAY_NAMES.get((day - today).days)
+    return f"{name}, {date_text}" if name else date_text
 
 
 def _f(value: float | None, fmt: str = "{:.0f}", unit: str = "") -> str:
@@ -59,6 +67,8 @@ def activity_inputs(day: DayForecast, window: WindowStats, time_of_day: str) -> 
         temp_change=day.temp_change,
         moon_illumination=moon_phase(day.day).illumination,
         time_of_day=time_of_day,
+        temperature=window.temperature,
+        fresh_snow=day.snow_before_dusk if time_of_day == "dusk" else day.snow_before_dawn,
     )
 
 
@@ -72,27 +82,12 @@ def activity_lines(day: DayForecast) -> list[str]:
     return lines
 
 
-def format_activity(day: DayForecast, heading: str) -> str:
-    moon = moon_phase(day.day)
-    out = [f"🐾 <b>{heading}, {day.day.day} {MONTHS[day.day.month - 1]}</b>",
-           f"{moon.emoji} {moon.name}, освещено {moon.illumination * 100:.0f}%", ""]
-    for group, (emoji, title) in GROUPS.items():
-        for tod, label, window in (("dawn", "утро", day.dawn), ("dusk", "вечер", day.dusk)):
-            a = estimate_activity(group, activity_inputs(day, window, tod))
-            out.append(f"{emoji} {title}, {label}: <b>{a.value}/5</b> ({a.label})")
-        reasons = estimate_activity(group, activity_inputs(day, day.dawn, "dawn")).reasons
-        out.append("   <i>утром: " + "; ".join(reasons) + "</i>")
-    out.append("")
-    out.append(f"ℹ️ {ACTIVITY_DISCLAIMER}")
-    return "\n".join(out)
-
-
 def format_day(day: DayForecast, heading: str) -> str:
     moon = moon_phase(day.day)
     score = score_day(conditions_for(day))
     reasons = "; ".join(score.reasons) if score.reasons else "нет данных"
     return (
-        f"🦌 <b>{heading}, {day.day.day} {MONTHS[day.day.month - 1]}</b>\n"
+        f"🦌 <b>{heading}</b>\n"
         f"🌅 Восход {day.sunrise:%H:%M}   🌇 Закат {day.sunset:%H:%M}\n"
         f"{moon.emoji} {moon.name}, освещено {moon.illumination * 100:.0f}%\n\n"
         f"{_window_line('Утренняя зорька', day.dawn)}\n\n"
@@ -110,25 +105,11 @@ def format_forecast(days: dict[date, DayForecast], today: date, place_title: str
     tomorrow = today + timedelta(days=1)
     blocks = [f"📍 {place_title}"]
     if tomorrow in days and not only_today:
-        blocks.append(format_day(days[tomorrow], "Прогноз на зорьку: завтра"))
+        blocks.append(format_day(days[tomorrow], day_heading(tomorrow, today)))
     if today in days:
-        blocks.append(format_day(days[today], "Сегодня"))
+        blocks.append(format_day(days[today], day_heading(today, today)))
     if len(blocks) == 1:
         blocks.append("Нет данных для этого места (возможно, полярный день или ночь).")
     elif len(blocks) > 1:
         blocks.append(f"ℹ️ {ACTIVITY_DISCLAIMER}")
-    return "\n\n".join(blocks)
-
-
-def format_activity_report(days: dict[date, DayForecast], today: date, place_title: str) -> str:
-    from datetime import timedelta
-
-    tomorrow = today + timedelta(days=1)
-    blocks = [f"📍 {place_title}"]
-    if tomorrow in days:
-        blocks.append(format_activity(days[tomorrow], "Активность: завтра"))
-    if today in days:
-        blocks.append(format_activity(days[today], "Сегодня"))
-    if len(blocks) == 1:
-        blocks.append("Нет данных для этого места.")
     return "\n\n".join(blocks)

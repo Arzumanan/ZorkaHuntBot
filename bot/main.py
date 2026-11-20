@@ -18,34 +18,16 @@ from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
 
 from .config import load_config
 from .db import Database
-from .handlers import checklist, common, forecast, journal, location, places, seasons, subscription
+from .handlers import common
 from .services.scheduler import run_scheduler
 from .web.api import start_web_server
 
-COMMANDS = [
-    BotCommand(command="forecast", description="Прогноз на зорьку"),
-    BotCommand(command="activity", description="Активность зверя и птицы"),
-    BotCommand(command="seasons", description="Сроки охоты в регионе"),
-    BotCommand(command="region", description="Выбрать регион"),
-    BotCommand(command="places", description="Сохранённые угодья"),
-    BotCommand(command="checklist", description="Чек-лист снаряжения"),
-    BotCommand(command="subscribe", description="Утренняя рассылка"),
-    BotCommand(command="location", description="Указать место"),
-    BotCommand(command="add_trophy", description="Добавить запись в журнал"),
-    BotCommand(command="journal", description="Журнал охоты"),
-    BotCommand(command="stats", description="Статистика журнала"),
-    BotCommand(command="help", description="Справка"),
-]
+COMMANDS = [BotCommand(command="start", description="Открыть Зорьку")]
 
 
 def build_dispatcher() -> Dispatcher:
     dp = Dispatcher()
-    # Порядок важен: кнопки меню и /cancel (common) должны срабатывать раньше шагов диалогов.
-    # location — последним: его F.location работает в любом состоянии, а у places свой StateFilter.
-    dp.include_routers(
-        common.router, forecast.router, seasons.router, subscription.router, checklist.router,
-        places.router, journal.router, location.router,
-    )
+    dp.include_router(common.router)
     return dp
 
 
@@ -60,15 +42,14 @@ async def main() -> None:
         dp["db"] = db
         dp["http"] = http
         dp["webapp_url"] = config.webapp_url
-        scheduler_task = asyncio.create_task(run_scheduler(bot, db, http))
+        scheduler_task = asyncio.create_task(run_scheduler(bot, db, http, config.webapp_url))
         try:
             web_runner = await start_web_server(config, db, http)
         except OSError as exc:  # например, порт занят: бот должен работать и без Mini App
             logging.getLogger(__name__).error("Веб-сервер Mini App не запущен: %s", exc)
             web_runner = None
         try:
-            commands = COMMANDS + ([BotCommand(command="app", description="Открыть Mini App")] if config.webapp_url else [])
-            await bot.set_my_commands(commands)
+            await bot.set_my_commands(COMMANDS)
             if config.webapp_url:
                 await bot.set_chat_menu_button(
                     menu_button=MenuButtonWebApp(text="Зорька", web_app=WebAppInfo(url=config.webapp_url)))

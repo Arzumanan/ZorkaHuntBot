@@ -88,3 +88,28 @@ def test_conditions_for_calm_day_scores_high(forecast_json):
 
     d = parse_forecast(forecast_json)[date(2026, 11, 21)]
     assert score_day(conditions_for(d)).value >= 4
+
+
+def test_snow_before_dawn_counts_only_freezing_hours(forecast_json):
+    h = forecast_json["hourly"]
+    for i in range(24, 31):                       # 21 ноября 00:00–06:00, t ≈ −2 °C
+        h["precipitation"][i] = 0.5
+    d = parse_forecast(forecast_json)[date(2026, 11, 21)]
+    assert d.snow_before_dawn == pytest.approx(3.5)
+    for i in range(24, 31):
+        h["temperature_2m"][i] = 5.0              # теперь это дождь, а не снег
+    assert parse_forecast(forecast_json)[date(2026, 11, 21)].snow_before_dawn == 0
+
+
+def test_snow_before_dusk_uses_hours_before_sunset(forecast_json):
+    h = forecast_json["hourly"]
+    for i in range(24 + 8, 24 + 12):              # 21 ноября 08:00–11:00
+        h["precipitation"][i] = 1.0
+        h["temperature_2m"][i] = -1.0
+    d = parse_forecast(forecast_json)[date(2026, 11, 21)]
+    assert d.snow_before_dusk == pytest.approx(4.0) and d.snow_before_dawn == 0
+
+
+def test_snow_is_none_without_data(forecast_json):
+    forecast_json["hourly"]["precipitation"] = [None] * len(forecast_json["hourly"]["time"])
+    assert parse_forecast(forecast_json)[date(2026, 11, 21)].snow_before_dawn is None

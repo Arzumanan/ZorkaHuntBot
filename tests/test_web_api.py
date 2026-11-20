@@ -102,6 +102,20 @@ async def test_healthz_and_static_without_auth(client):
     assert (await client.get("/static/style.css")).status == 200
 
 
+async def test_every_script_and_style_in_index_is_served(client):
+    import re
+
+    text = await (await client.get("/")).text()
+    local = re.findall(r'(?:src|href)="(/static/[^"]+)"', text)
+    assert {"/static/style.css", "/static/core.js", "/static/app.js"} <= set(local)
+    for url in local:
+        resp = await client.get(url)
+        assert resp.status == 200, url
+    for tab in ("weather", "seasons", "checklist", "journal", "more"):
+        assert f'data-tab="{tab}"' in text
+    assert "Чек-лист" in text and "Журнал" in text
+
+
 # ---------- /api/me, регион, место ----------
 
 async def test_me_empty_state(client):
@@ -175,7 +189,9 @@ async def test_forecast_payload_structure(client, db):
         assert len(hourly[key]) == 24, key
     assert hourly["pressure_mmhg"][0] == pytest.approx(1015 * 0.750062, abs=0.1)
     assert day["dawn"]["wind_direction_name"] == "З"
-    assert {a["group"] for a in day["activity"]} == {"waterfowl", "upland", "ungulates"}
+    assert [a["group"] for a in day["activity"]] == ["waterfowl", "upland", "ungulates", "pheasant", "hare"]
+    assert [d["heading"] for d in data["days"]][0].startswith("Сегодня, ")
+    assert data["days"][1]["heading"].startswith("Завтра, ")
     assert "ориентировочная оценка" in data["activity_disclaimer"]
 
 
