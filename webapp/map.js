@@ -173,27 +173,29 @@
   function startHeading(onHeading) {
     const tg = Z.tg;
     let stopped = false;
-    const apply = (e) => { const deg = N.headingFromOrientation(e); if (deg != null && !stopped) onHeading(deg); };
+    const apply = (e) => { try { const deg = N.headingFromOrientation(e); if (deg != null && !stopped) onHeading(deg); } catch (err) { /* нет датчика */ } };
+    const stops = [];
     if (tg && tg.DeviceOrientation && (!tg.isVersionAtLeast || tg.isVersionAtLeast("8.0"))) {
       const handler = (e) => apply(e);
-      if (tg.onEvent) tg.onEvent("deviceOrientationChanged", handler);
-      try { tg.DeviceOrientation.start({ refresh_rate: 20, need_absolute: true }); } catch (e) { /* старый клиент */ }
-      return () => { stopped = true; try { tg.DeviceOrientation.stop(); } catch (e) { /* */ } if (tg.offEvent) tg.offEvent("deviceOrientationChanged", handler); };
+      try { if (tg.onEvent) tg.onEvent("deviceOrientationChanged", handler); } catch (e) { /* */ }
+      try {
+        const ret = tg.DeviceOrientation.start({ refresh_rate: 20, need_absolute: true });
+        if (ret && typeof ret.then === "function") ret.catch(function () { /* нет датчика или отказано */ });
+      } catch (e) { /* старый клиент или нет сенсора */ }
+      stops.push(() => { try { tg.DeviceOrientation.stop(); } catch (e) { /* */ } try { if (tg.offEvent) tg.offEvent("deviceOrientationChanged", handler); } catch (e) { /* */ } });
+    } else if (typeof DeviceOrientationEvent !== "undefined" && !DeviceOrientationEvent.requestPermission) {
+      // На iOS разрешение можно спрашивать только по жесту — здесь не вызываем, чтобы не спровоцировать странное поведение WebView.
+      const handler = (e) => apply(e);
+      try {
+        window.addEventListener("deviceorientationabsolute", handler, true);
+        window.addEventListener("deviceorientation", handler, true);
+      } catch (e) { /* */ }
+      stops.push(() => {
+        try { window.removeEventListener("deviceorientationabsolute", handler, true); } catch (e) { /* */ }
+        try { window.removeEventListener("deviceorientation", handler, true); } catch (e) { /* */ }
+      });
     }
-    const handler = (e) => apply(e);
-    const listen = () => {
-      window.addEventListener("deviceorientationabsolute", handler, true);
-      window.addEventListener("deviceorientation", handler, true);
-    };
-    const stop = () => {
-      stopped = true;
-      window.removeEventListener("deviceorientationabsolute", handler, true);
-      window.removeEventListener("deviceorientation", handler, true);
-    };
-    if (typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission) {
-      DeviceOrientationEvent.requestPermission().then((res) => { if (res === "granted" && !stopped) listen(); }).catch(() => {});
-    } else listen();
-    return stop;
+    return () => { stopped = true; stops.forEach((fn) => { try { fn(); } catch (e) { /* */ } }); };
   }
 
   function emojiIcon(emoji, cls) {
@@ -360,56 +362,135 @@
     if (session.targetId == null) return null;
     return marksCache.find((m) => m.id === session.targetId) || null;
   }
-  function refreshPanel() {
-    if (!panelEl) return;
-    panelEl.replaceChildren(panelContent());
-  }
   function headingDeg() {
     if (session.heading != null) return session.heading;
     if (session.pos && session.pos.heading != null) return session.pos.heading;
     return null;
   }
-  function panelContent() {
+  // Каркас панели собирается один раз. Курс (до 20 Гц), геопозиция и ветер меняют только текстовые узлы и поворот стрелки —
+  // нативный <select> из-за пересборки option сразу закрывался на телефоне.
+  function buildPanel() {
+    const arrow = h("div", { class: "map-compass hidden", id: "map-compass" },
+      h("div", { class: "map-compass-arrow", id: "map-compass-arrow" }, "▲"),
+      h("div", { class: "map-compass-label", id: "map-compass-label" }, "С"));
+    const btn = h("button", { type: "button", id: "map-target-btn", class: "map-target",
+      "aria-haspopup": "listbox", "aria-expanded": "false", "aria-label": "Вернуться к метке" }, "Выберите метку");
+    btn.addEventListener("click", (ev) => { ev.preventDefault(); ev.stopPropagation(); openTargetPicker(); });
+    const info = h("div", { id: "map-nav-info" },
+      h("b", { id: "map-nav-dist", class: "hidden" }),
+      h("div", { id: "map-nav-az", class: "muted hidden" }),
+      h("div", { id: "map-nav-hint", class: "muted" }));
+    const wind = h("div", { class: "map-wind-text", id: "map-wind" },
+      h("div", { id: "map-wind-line" }, "Запрашиваю ветер…"),
+      h("div", { id: "map-wind-approach", class: "hidden" }));
+    return h("div", {},
+      h("div", { class: "map-nav-row" },
+        arrow,
+        h("div", { class: "map-nav-main" },
+          h("div", { class: "map-nav-label" }, "Вернуться к…"),
+          btn, info)),
+      wind);
+  }
+  function refreshPanel() {
+    if (!panelEl) return;
+    if (!panelEl.querySelector("#map-target-btn")) panelEl.replaceChildren(buildPanel());
+    syncTargetButton();
+    updateNavLive();
+    updateWindLive();
+  }
+  function syncTargetButton() {
+    const btn = document.getElementById("map-target-btn");
+    if (!btn) return;
+    const target = currentTarget();
+    const opts = N.targetOptionLabels(marksCache);
+    const hit = target && opts.find((o) => o.id === target.id);
+    const next = hit ? hit.label : (opts.length ? "Выберите метку" : "Нет меток");
+    if (btn.textContent !== next) btn.textContent = next;
+  }
+  function updateNavLive() {
+    const info = document.getElementById("map-nav-info");
+    const distEl = document.getElementById("map-nav-dist");
+    const azEl = document.getElementById("map-nav-az");
+    const hint = document.getElementById("map-nav-hint");
+    const compass = document.getElementById("map-compass");
+    const arrow = document.getElementById("map-compass-arrow");
+    const compassLabel = document.getElementById("map-compass-label");
+    if (!info || !distEl || !azEl) return;
     const target = currentTarget();
     const pos = session.pos;
-    const opts = [h("option", { value: "", selected: !target }, "Выберите метку")].concat(
-      marksCache.map((m) => h("option", { value: String(m.id), selected: !!(target && target.id === m.id) }, m.emoji + " " + m.name)));
-    const sel = h("select", { "aria-label": "Вернуться к метке", class: "map-target" }, opts);
-    sel.addEventListener("change", () => {
-      session.targetId = sel.value ? Number(sel.value) : null;
-      drawNavLine(); refreshPanel();
-    });
-    let navInfo = h("div", { class: "muted" }, pos ? "Выберите метку, чтобы увидеть расстояние и направление." : "Включите геопозицию, чтобы вести к метке.");
-    let arrow = null;
     if (pos && target) {
       const dist = N.distance(pos.lat, pos.lon, target.lat, target.lon);
       const az = N.bearing(pos.lat, pos.lon, target.lat, target.lon);
       const hd = headingDeg();
       const rel = N.relativeBearing(az, hd);
       const rot = rel != null ? rel : az;
-      arrow = h("div", { class: "map-compass", title: hd != null ? "Стрелка относительно вашего курса" : "Азимут относительно севера" },
-        h("div", { class: "map-compass-arrow", style: "transform:rotate(" + rot + "deg)" }, "▲"),
-        h("div", { class: "map-compass-label" }, hd != null ? "курс" : "С"));
-      navInfo = h("div", {},
-        h("b", {}, N.formatDistance(dist)),
-        h("div", { class: "muted" }, N.formatAzimuth(az) + (hd != null ? " · относительно курса " + Math.round(rel) + "°" : "")));
+      const distText = N.formatDistance(dist);
+      const azText = N.formatAzimuth(az) + (hd != null ? " · относительно курса " + Math.round(rel) + "°" : "");
+      if (hint) { hint.classList.add("hidden"); if (hint.textContent) hint.textContent = ""; }
+      distEl.classList.remove("hidden");
+      azEl.classList.remove("hidden");
+      if (distEl.textContent !== distText) distEl.textContent = distText;
+      if (azEl.textContent !== azText) azEl.textContent = azText;
+      if (compass) {
+        compass.classList.remove("hidden");
+        compass.title = hd != null ? "Стрелка относительно вашего курса" : "Азимут относительно севера";
+      }
+      if (arrow) arrow.style.transform = "rotate(" + rot + "deg)";
+      const cl = hd != null ? "курс" : "С";
+      if (compassLabel && compassLabel.textContent !== cl) compassLabel.textContent = cl;
+    } else {
+      const fallback = pos ? "Выберите метку, чтобы увидеть расстояние и направление." : "Включите геопозицию, чтобы вести к метке.";
+      distEl.classList.add("hidden");
+      azEl.classList.add("hidden");
+      if (distEl.textContent) distEl.textContent = "";
+      if (azEl.textContent) azEl.textContent = "";
+      if (hint) { hint.classList.remove("hidden"); if (hint.textContent !== fallback) hint.textContent = fallback; }
+      if (compass) compass.classList.add("hidden");
     }
+  }
+  function updateWindLive() {
+    const line = document.getElementById("map-wind-line");
+    const ap = document.getElementById("map-wind-approach");
+    if (!line) return;
     const w = session.wind;
-    let windBlock = h("div", { class: "muted" }, "Запрашиваю ветер…");
+    const target = currentTarget();
+    let text = "Запрашиваю ветер…";
+    let approach = "";
     if (w) {
       const speed = w.wind_speed != null ? Number(w.wind_speed).toFixed(1) + " м/с" : "—";
       const from = w.wind_direction_name ? "ветер " + w.wind_direction_name : "";
-      windBlock = h("div", { class: "map-wind-text" },
-        h("div", {}, "💨 " + speed + (from ? ", " + from : "") + (w.scent_text ? ". " + w.scent_text : "")),
-        target && w.approach_text ? h("div", {}, w.approach_text) : null);
+      text = "💨 " + speed + (from ? ", " + from : "") + (w.scent_text ? ". " + w.scent_text : "");
+      if (target && w.approach_text) approach = w.approach_text;
     }
-    return h("div", {},
-      h("div", { class: "map-nav-row" },
-        arrow,
-        h("div", { class: "map-nav-main" },
-          h("div", { class: "map-nav-label" }, "Вернуться к…"),
-          sel, navInfo)),
-      windBlock);
+    if (line.textContent !== text) line.textContent = text;
+    if (ap) {
+      if (ap.textContent !== approach) ap.textContent = approach;
+      ap.classList.toggle("hidden", !approach);
+    }
+  }
+  function pickTarget(id) {
+    session.targetId = id == null || id === "" ? null : Number(id);
+    closeSheet();
+    syncTargetButton();
+    updateNavLive();
+    updateWindLive();
+    drawNavLine();
+  }
+  function openTargetPicker() {
+    const btn = document.getElementById("map-target-btn");
+    const opts = N.targetOptionLabels(marksCache);
+    if (!opts.length) { Z.toast("Сначала поставьте метку на карте."); return; }
+    if (btn) btn.setAttribute("aria-expanded", "true");
+    const pos = session.pos;
+    const rows = opts.map((o) => {
+      const m = marksCache.find((x) => x.id === o.id);
+      const d = (pos && m) ? N.formatDistance(N.distance(pos.lat, pos.lon, m.lat, m.lon)) : "";
+      const selected = session.targetId === o.id;
+      return h("button", { type: "button", class: "map-pick-row" + (selected ? " active" : ""), "aria-current": selected ? "true" : null, onclick: () => pickTarget(o.id) },
+        h("span", {}, o.label),
+        d ? h("span", { class: "muted" }, d) : null);
+    });
+    openSheet(h("div", {}, h("h3", {}, "Вернуться к…"), rows));
   }
   function showBanner(err) {
     if (!bannerEl) return;
@@ -434,7 +515,11 @@
       node));
     sheetEl.classList.remove("hidden");
   }
-  function closeSheet() { if (sheetEl) { sheetEl.classList.add("hidden"); sheetEl.replaceChildren(); } }
+  function closeSheet() {
+    if (sheetEl) { sheetEl.classList.add("hidden"); sheetEl.replaceChildren(); }
+    const btn = document.getElementById("map-target-btn");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  }
 
   function openForm(existing, latlng) {
     const isNew = !existing;
@@ -513,11 +598,11 @@
       if (Z.state.tab !== "map") return;
       session.wind = w;
       drawWindArrow();
-      refreshPanel();
+      updateWindLive();
     } catch (e) {
       if (Z.state.tab !== "map") return;
       session.wind = null;
-      if (panelEl) refreshPanel();
+      updateWindLive();
     }
   }
   function relocate(fit) {
@@ -528,7 +613,7 @@
       drawMe();
       if (fit && map) map.setView([p.lat, p.lon], Math.max(map.getZoom(), 15));
       scheduleWind();
-      refreshPanel();
+      updateNavLive();
     }, (e) => showBanner(e));
   }
 
@@ -541,12 +626,29 @@
     if (menu) menu.querySelectorAll("button[data-layer]").forEach((b) => b.classList.toggle("active", b.dataset.layer === name));
     refreshAttr();
   }
+  let boundsLoading = null;
+  function ensureBoundaries() {
+    if (boundsLayer) {
+      if (map && session.showBounds && !map.hasLayer(boundsLayer)) boundsLayer.addTo(map);
+      refreshAttr();
+      return Promise.resolve(boundsLayer);
+    }
+    if (boundsLoading) return boundsLoading;
+    boundsLoading = loadBoundaries(L).then((group) => {
+      boundsLoading = null;
+      if (Z.state.tab !== "map" || !map) return group;
+      boundsLayer = group;
+      if (session.showBounds && group && group.getLayers && group.getLayers().length) group.addTo(map);
+      refreshAttr();
+      if (map) try { map.invalidateSize(); } catch (e) { /* */ }
+      return group;
+    }).catch((e) => { boundsLoading = null; refreshAttr(); return null; });
+    return boundsLoading;
+  }
   function setBoundsVisible(on) {
     session.showBounds = !!on;
-    if (map && boundsLayer) {
-      if (session.showBounds) boundsLayer.addTo(map);
-      else map.removeLayer(boundsLayer);
-    }
+    if (session.showBounds) ensureBoundaries();
+    else if (map && boundsLayer) map.removeLayer(boundsLayer);
     const cb = document.getElementById("map-bounds-on");
     if (cb) cb.checked = session.showBounds;
     refreshAttr();
@@ -599,7 +701,7 @@
       } }, "📌"),
       h("button", { class: "map-fab", title: "Список меток", "aria-label": "Список меток", onclick: openList }, "☰"));
     bannerEl = h("div", { class: "map-banner hidden", role: "status" });
-    panelEl = h("div", { class: "map-panel" }, panelContent());
+    panelEl = h("div", { class: "map-panel" }, buildPanel());
     sheetEl = h("div", { class: "map-sheet hidden" });
     const attrBtn = h("button", { type: "button", id: "map-attr-btn", class: "map-attr-btn", title: "Источники карты", "aria-label": "Источники карты", "aria-expanded": "false", onclick: toggleAttr }, "ⓘ");
     const attrPanel = h("div", { id: "map-attr-panel", class: "map-attr-panel hidden" });
@@ -613,6 +715,7 @@
     if (session.stopHdg) { session.stopHdg(); session.stopHdg = null; }
     if (map) { map.remove(); map = null; }
     meMarker = meCircle = targetLine = markLayer = placeLayer = windLayer = boundsLayer = null;
+    boundsLoading = null;
     layers = {};
     panelEl = bannerEl = sheetEl = null;
   }
@@ -641,7 +744,7 @@
 
     const start = session.pos || (placesCache[0] ? { lat: placesCache[0].lat, lon: placesCache[0].lon, zoom: 12 } :
       (marksCache[0] ? { lat: marksCache[0].lat, lon: marksCache[0].lon, zoom: 13 } : HOME));
-    map = L.map(mapEl, { zoomControl: true, attributionControl: false }).setView([start.lat, start.lon], start.zoom || 13);
+    map = L.map(mapEl, { zoomControl: true, attributionControl: false, tap: false, bounceAtZoomLimits: false }).setView([start.lat, start.lon], start.zoom || 13);
     layers = {};
     for (const [k, t] of Object.entries(TILES)) {
       layers[k] = L.tileLayer(t.url, { attribution: "", maxZoom: t.maxZoom, updateWhenIdle: true });
@@ -661,20 +764,18 @@
     map.on("moveend", scheduleWind);
     loadWind();
 
-    boundsLayer = await loadBoundaries(L);
-    if (Z.state.tab !== "map" || !map) return;
-    if (boundsLayer && boundsLayer.getLayers && boundsLayer.getLayers().length && session.showBounds) boundsLayer.addTo(map);
-    refreshAttr();
+    if (session.showBounds) ensureBoundaries();   // GeoJSON только на вкладке «Карта» и если слой включён
+    else refreshAttr();
 
     session.stopLoc = startLocation((p) => {
       session.pos = p;
       if (p.heading != null) session.heading = p.heading;
       drawMe();
       scheduleWind();
-      refreshPanel();
+      updateNavLive();
       showBanner(null);
     }, (e) => showBanner(e));
-    session.stopHdg = startHeading((deg) => { session.heading = deg; refreshPanel(); });
+    session.stopHdg = startHeading((deg) => { session.heading = deg; updateNavLive(); });
     map.whenReady(() => setTimeout(() => { if (map) map.invalidateSize(); }, 80));
   };
 })();

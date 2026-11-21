@@ -197,6 +197,49 @@
     if (!code) code = "geo_generic";
     return { code, message: GEO_TEXT[code] || GEO_TEXT.geo_generic, settings: code === "geo_denied" };
   }
+
+  /** Ключ состава меток: меняется только когда меняются сами метки, не позиция и не курс. */
+  function marksKey(marks) {
+    return uniqueMarks(marks).map((m) => [m.id, m.type || "", m.name || "", m.lat, m.lon].join("\t")).join("\n");
+  }
+  function uniqueMarks(marks) {
+    const seen = new Set();
+    const out = [];
+    for (const m of marks || []) {
+      if (!m || m.id == null || seen.has(m.id)) continue;
+      seen.add(m.id);
+      out.push(m);
+    }
+    return out;
+  }
+  /**
+   * Подписи пунктов «Вернуться к…». Стабильны относительно позиции и курса:
+   * при одинаковых именах добавляем тип, а если тип тоже совпадает — координаты, не расстояние.
+   */
+  function targetOptionLabels(marks) {
+    const list = uniqueMarks(marks);
+    const counts = Object.create(null);
+    for (const m of list) {
+      const key = String(m.name || "").trim().toLowerCase();
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    const typeOf = (m) => m.type_name || (TYPE_BY[m.type] && TYPE_BY[m.type].name) || "";
+    return list.map((m) => {
+      const emoji = m.emoji || (TYPE_BY[m.type] && TYPE_BY[m.type].emoji) || "📍";
+      const name = m.name || (TYPE_BY[m.type] && TYPE_BY[m.type].name) || "Метка";
+      const base = (emoji + " " + name).trim();
+      const key = String(m.name || "").trim().toLowerCase();
+      if ((counts[key] || 0) <= 1) return { id: m.id, label: base };
+      const typ = typeOf(m);
+      const sameType = list.filter((x) => String(x.name || "").trim().toLowerCase() === key && typeOf(x) === typ).length > 1;
+      let extra = typ;
+      if (sameType && has(m.lat) && has(m.lon)) {
+        extra = (extra ? extra + ", " : "") + Number(m.lat).toFixed(3) + ", " + Number(m.lon).toFixed(3);
+      }
+      return { id: m.id, label: extra ? base + " (" + extra + ")" : base };
+    });
+  }
+
   const shouldFallbackFromTelegram = (info) => info && info.code !== "geo_denied";
 
   return {
@@ -205,5 +248,6 @@
     scentDrift, approachAdvice, currentWind, roundCoord, validCoord, cleanText, normalizeMark,
     packMark, unpackMark, markPublic, defaultNavTarget, parseMarkId, headingFromOrientation, norm360,
     GEO_TEXT, describeGeoError, classifyGeoRaw, shouldFallbackFromTelegram,
+    marksKey, uniqueMarks, targetOptionLabels,
   };
 });

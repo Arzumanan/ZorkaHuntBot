@@ -146,3 +146,52 @@ test("ошибки геопозиции: сырые коды Telegram и бра�
   assert.equal(N.shouldFallbackFromTelegram(denied), false);
   assert.equal(N.shouldFallbackFromTelegram(ru({ code: 3 })), true);
 });
+
+test("подписи «Вернуться к…» уникальны по id и различают одинаковые имена типом", () => {
+  const marks = [
+    { id: 1, type: "other", type_name: "Другое", name: "Фащан заяц", emoji: "📍", lat: 44.6, lon: 40.1 },
+    { id: 1, type: "other", type_name: "Другое", name: "Фащан заяц", emoji: "📍", lat: 44.6, lon: 40.1 },
+    { id: 2, type: "flush", type_name: "Место подъёма", name: "Фащан заяц", emoji: "🐦", lat: 44.7, lon: 40.2 },
+    { id: 3, type: "car", type_name: "Машина", name: "Машина", emoji: "🚗", lat: 44.5, lon: 40.0 },
+  ];
+  const opts = N.targetOptionLabels(marks);
+  assert.equal(opts.length, 3);
+  assert.deepEqual(opts.map((o) => o.id), [1, 2, 3]);
+  const twins = opts.filter((o) => String(o.label).includes("Фащан"));
+  assert.equal(twins.length, 2);
+  assert.notEqual(twins[0].label, twins[1].label);
+  assert.match(twins[0].label, /Другое|Место подъёма/);
+  assert.match(twins[1].label, /Другое|Место подъёма/);
+  assert.equal(opts.find((o) => o.id === 3).label, "🚗 Машина");
+});
+
+test("если имя и тип совпадают, к подписи добавляются координаты, а не расстояние", () => {
+  const marks = [
+    { id: 10, type: "other", type_name: "Другое", name: "Фащан заяц", emoji: "📍", lat: 44.111, lon: 40.111 },
+    { id: 11, type: "other", type_name: "Другое", name: "Фащан заяц", emoji: "📍", lat: 44.222, lon: 40.222 },
+  ];
+  const opts = N.targetOptionLabels(marks);
+  assert.notEqual(opts[0].label, opts[1].label);
+  assert.match(opts[0].label, /44\.111/);
+  assert.match(opts[1].label, /44\.222/);
+  assert.ok(opts.every((o) => !/\d+\s*(м|км)\b/.test(o.label)), JSON.stringify(opts));
+});
+
+test("обновление курса и позиции не трогает список целей", () => {
+  const marks = [
+    { id: 1, type: "other", type_name: "Другое", name: "Фащан заяц", emoji: "📍", lat: 44.6, lon: 40.1 },
+    { id: 2, type: "flush", type_name: "Место подъёма", name: "Фащан заяц", emoji: "🐦", lat: 44.7, lon: 40.2 },
+  ];
+  const before = N.targetOptionLabels(marks);
+  const key = N.marksKey(marks);
+  const pos1 = { lat: 44.61, lon: 40.05 };
+  const pos2 = { lat: 44.62, lon: 40.06 };
+  const d1 = N.formatDistance(N.distance(pos1.lat, pos1.lon, marks[0].lat, marks[0].lon));
+  const d2 = N.formatDistance(N.distance(pos2.lat, pos2.lon, marks[0].lat, marks[0].lon));
+  assert.notEqual(d1, d2, "расстояние живое, подписи списка — нет");
+  assert.deepEqual(N.targetOptionLabels(marks), before);
+  assert.equal(N.marksKey(marks), key);
+  assert.ok(!before.some((o) => o.label.includes(d1) || o.label.includes(d2)));
+  const renamed = [{ ...marks[0], name: "Вышка" }, marks[1]];
+  assert.notEqual(N.marksKey(renamed), key);
+});

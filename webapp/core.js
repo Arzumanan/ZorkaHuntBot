@@ -3,13 +3,41 @@
 (function () {
   "use strict";
   const tg = window.Telegram && window.Telegram.WebApp;
-  if (tg) { tg.ready(); tg.expand(); }
+  if (tg) {
+    try { tg.ready(); } catch (e) { /* старый клиент */ }
+    try { tg.expand(); } catch (e) { /* */ }
+    // Вертикальный свайп Telegram закрывает Mini App; на карте он срабатывает при перетаскивании вниз.
+    // Отключаем во всём приложении (Bot API 7.7+). Подтверждение закрытия не включаем — только мешает.
+    try {
+      if (typeof tg.disableVerticalSwipes === "function" && (!tg.isVersionAtLeast || tg.isVersionAtLeast("7.7"))) {
+        tg.disableVerticalSwipes();
+      }
+    } catch (e) { /* метод есть не у всех клиентов */ }
+  }
   const API = (window.ZORKA_API_BASE || "").replace(/\/$/, "");     // нужен только для разового переноса из старой базы
   const VERSION = ((document.currentScript && document.currentScript.src) || "").split("?")[1] || "";
   const view = document.getElementById("view");
   const state = { me: null, tab: "weather", placeKey: null, cache: {} };
   const Z = { tg, view, state, views: {}, API };
   window.Z = Z;
+
+  // Чтобы сбой в WebView не закрывал приложение «сам собой»: показываем экран с ошибкой, а не молча падаем.
+  function reportFatal(err) {
+    const raw = err && err.message ? err.message : String(err || "Неизвестная ошибка");
+    const message = /WebApp|TypeError|undefined/i.test(raw)
+      ? "Не удалось открыть этот экран. Обновите страницу и попробуйте ещё раз."
+      : raw;
+    try { if (Z.showError) { Z.showError(new Error(message), () => { try { location.reload(); } catch (e) { /* */ } }); return; } } catch (e) { /* */ }
+  }
+  window.addEventListener("error", (ev) => {
+    if (ev && !ev.error && ev.target && ev.target !== window) return;   // ошибка загрузки файла — не роняем интерфейс
+    if (ev && ev.preventDefault) ev.preventDefault();
+    reportFatal(ev && (ev.error || ev.message));
+  });
+  window.addEventListener("unhandledrejection", (ev) => {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    reportFatal(ev && ev.reason);
+  });
 
   // ---------- DOM: всё через текстовые узлы, пользовательский текст не попадает в разметку ----------
   const PROPS = new Set(["value", "checked", "disabled", "selected", "indeterminate"]);

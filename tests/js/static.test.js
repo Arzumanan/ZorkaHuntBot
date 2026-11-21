@@ -120,3 +120,22 @@ test("каталог границ: файлы на месте, загрузчи�
   assert.match(map, /describeGeoError/);
 
 });
+
+test("приложение отключает вертикальный свайп Telegram (закрытие Mini App), если метод есть", () => {
+  const core = read("core.js");
+  assert.match(core, /disableVerticalSwipes/);
+  assert.match(core, /isVersionAtLeast\(["']7\.7["']\)/);
+  assert.ok(!/enableClosingConfirmation\s*\(/.test(core), "подтверждение закрытия не включаем");
+});
+
+test("список «Вернуться к…» не пересобирается при обновлении курса, позиции и ветра", () => {
+  const map = read("map.js");
+  assert.match(map, /function updateNavLive\s*\(/);
+  assert.match(map, /function updateWindLive\s*\(/);
+  assert.match(map, /function openTargetPicker\s*\(/);
+  assert.match(map, /targetOptionLabels/);
+  assert.ok(!/h\(\s*["']select["']/.test(map), "нативный select больше не используем: он закрывался при перерисовке");
+  assert.match(map, /startHeading\(\(deg\) => \{ session\.heading = deg; updateNavLive\(\); \}\)/);
+  assert.match(map, /scheduleWind\(\);\s*updateNavLive\(\)/);
+  assert.match(map, /drawWindArrow\(\);\s*updateWindLive\(\)/);
+});
