@@ -119,3 +119,30 @@ test("курс устройства из события ориентации: iO
   assert.equal(N.headingFromOrientation({ alpha: 90 }), 270);
   assert.equal(N.headingFromOrientation({}), null);
 });
+
+test("ошибки геопозиции: сырые коды Telegram и браузера становятся понятным русским текстом", () => {
+  const ru = (e) => N.describeGeoError(e);
+  const raw = ru("WebAppLocationManagerLocationNotAvailable");
+  assert.equal(raw.code, "geo_unavailable");
+  assert.match(raw.message, /Telegram не даёт геопозицию/);
+  assert.ok(!/WebApp/.test(raw.message));
+  assert.equal(ru({ message: "WebAppLocationManagerLocationNotAvailable" }).code, "geo_unavailable");
+  assert.equal(ru({ message: "LOCATION_NOT_AVAILABLE" }).code, "geo_unavailable");
+  assert.equal(ru({ error: "WebAppMethodUnsupported" }).code, "geo_unavailable");
+  assert.equal(ru({ code: "geo_unavailable" }).message, N.GEO_TEXT.geo_unavailable);
+  const denied = ru({ code: 1, message: "User denied Geolocation" });
+  assert.equal(denied.code, "geo_denied");
+  assert.equal(denied.settings, true);
+  assert.match(denied.message, /запрещена/);
+  assert.ok(!/User denied/.test(denied.message));
+  assert.equal(ru({ code: "geo_denied" }).settings, true);
+  assert.equal(ru({ code: 3, message: "Timeout expired" }).code, "geo_timeout");
+  assert.match(ru({ code: 3 }).message, /время ожидания/);
+  assert.equal(ru({ code: 2, message: "POSITION_UNAVAILABLE" }).code, "geo_generic");
+  assert.equal(ru(null).code, "geo_generic");
+  assert.equal(ru({ message: "something weird" }).code, "geo_generic");
+  assert.equal(ru({ message: "something weird" }).message, N.GEO_TEXT.geo_generic);
+  assert.equal(N.shouldFallbackFromTelegram(raw), true);
+  assert.equal(N.shouldFallbackFromTelegram(denied), false);
+  assert.equal(N.shouldFallbackFromTelegram(ru({ code: 3 })), true);
+});

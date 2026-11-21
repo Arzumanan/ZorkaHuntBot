@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "file": "adygea_maykop.geojson",
+    "region": "adygea",
+    "district": "maykop",
+    "type": "public",
+    "title": "ОДОУ Майкопского района"
+  },
+  {
+    "file": "oopt_adygea.geojson",
+    "region": "adygea",
+    "type": "oopt",
+    "title": "ООПТ Адыгеи"
+  },
+  {
+    "file": "oopt_krasnodar.geojson",
+    "region": "krasnodar",
+    "type": "oopt",
+    "title": "ООПТ Краснодарского края"
+  }
+]

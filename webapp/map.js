@@ -9,20 +9,26 @@
   const TILES = {
     osm: {
       url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-      attr: "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap</a>",
+      attr: [{ href: "https://www.openstreetmap.org/copyright", text: "© OpenStreetMap" }],
       maxZoom: 19, label: "Схема",
     },
     esri: {
       url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      attr: "Снимки &copy; Esri, Maxar, Earthstar Geographics",
+      attr: [{ text: "Снимки © Esri, Maxar, Earthstar Geographics" }],
       maxZoom: 18, label: "Спутник",
     },
     topo: {
       url: "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
-      attr: "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OSM</a>, <a href=\"https://opentopomap.org\" target=\"_blank\" rel=\"noopener\">OpenTopoMap</a> (CC-BY-SA)",
+      attr: [
+        { href: "https://www.openstreetmap.org/copyright", text: "© OSM" },
+        { href: "https://opentopomap.org", text: "OpenTopoMap (CC-BY-SA)" },
+      ],
       maxZoom: 17, label: "Рельеф",
     },
   };
+  const OOPT_ATTR = { href: "https://www.openstreetmap.org/copyright", text: "ООПТ: OSM contributors (ODbL)" };
+  const BOUNDARY_DISCLAIMER = "Границы ориентировочные, по официальным схемам; не проверены — сверяйтесь с охотпользователем";
+  const TYPE_LABEL = { public: "Общедоступные угодья", assigned: "Закреплённые угодья", protection: "Зона охраны", oopt: "ООПТ" };
   const BOUNDARY_STYLE = {
     public: { color: "#2e7d32", weight: 2, fillOpacity: 0.14 },
     assigned: { color: "#1565c0", weight: 2, fillOpacity: 0.14 },
@@ -39,7 +45,7 @@
 
   let leafletPromise = null, map = null, layers = {}, meMarker = null, meCircle = null, targetLine = null;
   let markLayer = null, placeLayer = null, windLayer = null, boundsLayer = null;
-  let session = { layer: "esri", targetId: null, heading: null, pos: null, wind: null };
+  let session = { layer: "esri", targetId: null, heading: null, pos: null, wind: null, showBounds: true, hasOopt: false };
 
   function loadLeaflet() {
     if (window.L) return Promise.resolve(window.L);
@@ -61,52 +67,100 @@
     return leafletPromise;
   }
 
-  const canTelegramLoc = (tg) => !!(tg && tg.LocationManager && (!tg.isVersionAtLeast || tg.isVersionAtLeast("8.0")));
-  function requestLocation(tg) {
+  const fromBrowserPos = (p, source) => ({
+    lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy || null,
+    heading: p.coords.heading != null && p.coords.heading >= 0 ? p.coords.heading : null, source,
+  });
+  const geoFail = (err) => { const info = N.describeGeoError(err); return Object.assign(new Error(info.message), info); };
+  const telegramCapable = (tg) => {
+    const lm = tg && tg.LocationManager;
+    if (!lm) return false;
+    if (tg.isVersionAtLeast && !tg.isVersionAtLeast("8.0")) return false;
+    if (lm.isLocationAvailable === false) return false;
+    return true;
+  };
+  function browserLocation() {
     return new Promise((resolve, reject) => {
-      const fail = (code, message, settings) => { const e = new Error(message); e.code = code; e.settings = !!settings; reject(e); };
-      if (canTelegramLoc(tg)) {
-        const lm = tg.LocationManager;
-        const get = () => {
-          if (lm.isAccessRequested && !lm.isAccessGranted) {
-            return fail("geo_denied", "Геопозиция запрещена. Разрешите доступ в настройках Telegram.", true);
-          }
-          lm.getLocation((loc) => {
-            if (!loc || loc.latitude == null) return fail("geo_unavailable", "Не удалось определить местоположение.");
-            const course = loc.course;
-            resolve({
-              lat: loc.latitude, lon: loc.longitude, accuracy: loc.horizontal_accuracy || null,
-              heading: course != null && course >= 0 && course <= 360 ? course : null, source: "telegram",
-            });
-          });
-        };
-        if (lm.isInited) get(); else lm.init(get);
-        return;
-      }
-      if (!navigator.geolocation) return fail("geo_unsupported", "Это устройство не умеет определять местоположение.");
+      if (!navigator.geolocation) return reject(geoFail({ code: "geo_unsupported" }));
       navigator.geolocation.getCurrentPosition(
-        (p) => resolve({
-          lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy || null,
-          heading: p.coords.heading != null && p.coords.heading >= 0 ? p.coords.heading : null, source: "browser",
-        }),
-        (err) => fail(err.code === 1 ? "geo_denied" : "geo_unavailable",
-          err.code === 1 ? "Геопозиция запрещена. Разрешите доступ в настройках." : "Не удалось определить местоположение.",
-          err.code === 1),
+        (p) => resolve(fromBrowserPos(p, "browser")),
+        (err) => reject(geoFail(err)),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 4000 });
     });
   }
+  function telegramLocation(tg) {
+    return new Promise((resolve, reject) => {
+      const lm = tg.LocationManager;
+      if (lm.isLocationAvailable === false) return reject(geoFail({ code: "geo_unavailable", message: "WebAppLocationManagerLocationNotAvailable" }));
+      if (lm.isAccessRequested && !lm.isAccessGranted) return reject(geoFail({ code: "geo_denied", settings: true }));
+      const finish = (loc) => {
+        try {
+          if (typeof loc === "string") return reject(geoFail(loc));
+          if (loc && (typeof loc.error === "string" || typeof loc.error_code === "string")) return reject(geoFail(loc.error || loc.error_code));
+          if (!loc || loc.latitude == null) return reject(geoFail({ code: "geo_unavailable" }));
+          const course = loc.course;
+          resolve({
+            lat: loc.latitude, lon: loc.longitude, accuracy: loc.horizontal_accuracy || null,
+            heading: course != null && course >= 0 && course <= 360 ? course : null, source: "telegram",
+          });
+        } catch (e) { reject(geoFail(e)); }
+      };
+      const start = () => {
+        try {
+          const ret = lm.getLocation(finish);
+          if (ret && typeof ret.then === "function") ret.then(finish, (e) => reject(geoFail(e)));
+        } catch (e) { reject(geoFail(e)); }
+      };
+      try {
+        if (lm.isInited) start();
+        else lm.init((res) => {
+          if (res === false || (res && (res.error || res === "WebAppLocationManagerLocationNotAvailable"))) return reject(geoFail(res && res.error ? res.error : res || { code: "geo_unavailable" }));
+          start();
+        });
+      } catch (e) { reject(geoFail(e)); }
+    });
+  }
+  function withTimeout(promise, ms) {
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(geoFail({ code: "geo_timeout" })), ms);
+      promise.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(geoFail(e)); });
+    });
+  }
+  /** Telegram LocationManager, при недоступности — navigator.geolocation. Отказ в доступе не подменяем молча. */
+  async function requestLocation(tg) {
+    let last = null;
+    if (telegramCapable(tg)) {
+      try { return await withTimeout(telegramLocation(tg), 8000); }
+      catch (e) {
+        last = e;
+        if (!N.shouldFallbackFromTelegram(N.describeGeoError(e))) throw geoFail(e);
+      }
+    } else if (tg && tg.LocationManager && tg.LocationManager.isLocationAvailable === false) {
+      last = geoFail({ code: "geo_unavailable", message: "WebAppLocationManagerLocationNotAvailable" });
+    }
+    try { return await browserLocation(); }
+    catch (e) {
+      const prefer = last && N.describeGeoError(last).code === "geo_unavailable" ? last : e;
+      throw geoFail(prefer);
+    }
+  }
   function startLocation(onPos, onErr) {
     let timer = null, watchId = null, stopped = false;
-    const tick = () => { requestLocation(Z.tg).then((p) => { if (!stopped) onPos(p); }, (e) => { if (!stopped) onErr(e); }); };
+    const tick = () => {
+      requestLocation(Z.tg).then((p) => {
+        if (stopped) return;
+        onPos(p);
+        if (p.source === "browser" && navigator.geolocation && navigator.geolocation.watchPosition && watchId == null) {
+          if (timer) { clearInterval(timer); timer = null; }
+          watchId = navigator.geolocation.watchPosition(
+            (pos) => { if (!stopped) onPos(fromBrowserPos(pos, "browser")); },
+            (err) => { if (!stopped) onErr(geoFail(err)); },
+            { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+        }
+      }, (e) => { if (!stopped) onErr(geoFail(e)); });
+    };
     tick();
-    if (canTelegramLoc(Z.tg) || !navigator.geolocation || !navigator.geolocation.watchPosition) {
-      timer = setInterval(tick, 8000);
-    } else {
-      watchId = navigator.geolocation.watchPosition(
-        (p) => { if (!stopped) onPos({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy || null, heading: p.coords.heading != null && p.coords.heading >= 0 ? p.coords.heading : null, source: "browser" }); },
-        (err) => { if (!stopped) onErr(Object.assign(new Error("Не удалось определить местоположение."), { code: err.code === 1 ? "geo_denied" : "geo_unavailable", settings: err.code === 1 })); },
-        { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
-    }
+    timer = setInterval(() => { if (!stopped && watchId == null) tick(); }, 8000);
     return () => { stopped = true; if (timer) clearInterval(timer); if (watchId != null && navigator.geolocation) navigator.geolocation.clearWatch(watchId); };
   }
   function openGeoSettings() {
@@ -186,28 +240,38 @@
 
   async function loadBoundaries(leaf) {
     const group = leaf.layerGroup();
+    session.hasOopt = false;
     try {
       const resp = await fetch("data/boundaries/index.json" + qs);
       if (!resp.ok) return group;
       const list = await resp.json();
-      const files = (Array.isArray(list) ? list : []).map((x) => (typeof x === "string" ? x : x && x.file)).filter(Boolean);
-      for (const file of files) {
-        const name = String(file).replace(/^.*[/\\]/, "").replace(/[^\w.\-]/g, "");
-        if (!name) continue;
+      const entries = (Array.isArray(list) ? list : []).map((x) => (typeof x === "string" ? { file: x } : (x || {})));
+      for (const entry of entries) {
+        const file = String(entry.file || "").replace(/^.*[/\\]/, "").replace(/[^\w.\-]/g, "");
+        if (!file) continue;
         try {
-          const r = await fetch("data/boundaries/" + name + qs);
+          const r = await fetch("data/boundaries/" + file + qs);
           if (!r.ok) continue;
           const geo = await r.json();
-          leaf.geoJSON(geo, {
-            style: (f) => BOUNDARY_STYLE[boundaryKind(f && f.properties && (f.properties.type || f.properties.kind))],
-            onEachFeature: (f, layer) => {
+          const fallbackType = entry.type || null;
+          const layer = leaf.geoJSON(geo, {
+            style: (f) => BOUNDARY_STYLE[boundaryKind((f && f.properties && (f.properties.type || f.properties.kind)) || fallbackType)],
+            onEachFeature: (f, lyr) => {
               const p = (f && f.properties) || {};
-              const box = document.createElement("div");
-              if (p.name) { const b = document.createElement("b"); b.append(document.createTextNode(String(p.name))); box.append(b); }
-              if (p.user) { const d = document.createElement("div"); d.className = "muted"; d.append(document.createTextNode(String(p.user))); box.append(d); }
-              if (box.childNodes.length) layer.bindPopup(box);
+              const kind = boundaryKind(p.type || p.kind || fallbackType);
+              if (kind === "oopt") session.hasOopt = true;
+              const lines = [
+                TYPE_LABEL[kind] || null,
+                p.user || null,
+                p.protection_title && p.protection_title !== p.name ? p.protection_title : null,
+                p.area_stated_ha ? ("площадь по акту: " + p.area_stated_ha + " га") : null,
+                p.source || null,
+                BOUNDARY_DISCLAIMER,
+              ];
+              lyr.bindPopup(() => popupNode(p.name || TYPE_LABEL[kind] || "Участок", lines));
             },
-          }).addTo(group);
+          });
+          layer.addTo(group);
         } catch (e) { /* один файл битый — остальные всё равно пробуем */ }
       }
     } catch (e) { /* каталога нет — слой просто пустой */ }
@@ -350,11 +414,18 @@
   function showBanner(err) {
     if (!bannerEl) return;
     if (!err) { bannerEl.replaceChildren(); bannerEl.classList.add("hidden"); return; }
+    const info = N.describeGeoError(err);
     bannerEl.classList.remove("hidden");
-    const row = [h("span", {}, err.message)];
-    if (err.settings) row.push(h("button", { class: "btn secondary", onclick: openGeoSettings }, "Открыть настройки"));
-    else if (err.code !== "geo_unsupported") row.push(h("button", { class: "btn secondary", onclick: () => relocate(true) }, "Повторить"));
-    bannerEl.replaceChildren(h("div", { class: "map-banner-inner" }, row));
+    const actions = [];
+    if (info.settings && Z.tg && Z.tg.LocationManager && Z.tg.LocationManager.openSettings) {
+      actions.push(h("button", { class: "btn secondary", onclick: openGeoSettings }, "Открыть настройки"));
+    }
+    actions.push(h("button", { class: "btn secondary", onclick: () => relocate(true) }, "Повторить"));
+    bannerEl.replaceChildren(h("div", { class: "map-banner-inner" },
+      h("div", { class: "map-banner-text" }, info.message),
+      h("div", { class: "map-banner-actions" },
+        actions,
+        h("button", { class: "icon-btn map-banner-close", type: "button", "aria-label": "Закрыть", onclick: () => showBanner(null) }, "×"))));
   }
   function openSheet(node) {
     if (!sheetEl) return;
@@ -467,24 +538,72 @@
     session.layer = name;
     layers[name].addTo(map);
     const menu = document.getElementById("map-layer-menu");
-    if (menu) menu.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.layer === name));
+    if (menu) menu.querySelectorAll("button[data-layer]").forEach((b) => b.classList.toggle("active", b.dataset.layer === name));
+    refreshAttr();
+  }
+  function setBoundsVisible(on) {
+    session.showBounds = !!on;
+    if (map && boundsLayer) {
+      if (session.showBounds) boundsLayer.addTo(map);
+      else map.removeLayer(boundsLayer);
+    }
+    const cb = document.getElementById("map-bounds-on");
+    if (cb) cb.checked = session.showBounds;
+    refreshAttr();
+  }
+  function currentAttributions() {
+    const items = [];
+    const base = TILES[session.layer];
+    if (base && base.attr) items.push(...base.attr);
+    if (session.showBounds && session.hasOopt) items.push(OOPT_ATTR);
+    return items;
+  }
+  function refreshAttr() {
+    const panel = document.getElementById("map-attr-panel");
+    if (!panel) return;
+    const links = currentAttributions().map((a) => {
+      if (a.href) return h("div", {}, h("a", { href: a.href, onclick: (ev) => Z.openLink(ev, a.href) }, a.text));
+      return h("div", {}, a.text);
+    });
+    panel.replaceChildren(...[
+      h("div", { class: "map-attr-title" }, "Источники карты"),
+      ...links,
+      session.showBounds ? h("div", { class: "muted map-attr-note" }, BOUNDARY_DISCLAIMER) : null,
+    ].filter(Boolean));
+  }
+  function toggleAttr() {
+    const panel = document.getElementById("map-attr-panel");
+    if (!panel) return;
+    const menu = document.getElementById("map-layer-menu");
+    if (menu) menu.classList.add("hidden");
+    const open = panel.classList.toggle("hidden") === false;
+    if (open) refreshAttr();
+    const btn = document.getElementById("map-attr-btn");
+    if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
   }
 
   function buildChrome(root) {
+    const boundsToggle = h("label", { class: "map-bounds-toggle" },
+      h("input", { type: "checkbox", id: "map-bounds-on", checked: session.showBounds, onchange: (ev) => setBoundsVisible(ev.target.checked) }),
+      " Границы угодий");
     const layerMenu = h("div", { id: "map-layer-menu", class: "map-layer-menu hidden" },
-      Object.entries(TILES).map(([k, t]) => h("button", { type: "button", "data-layer": k, class: session.layer === k ? "active" : "", onclick: () => { setBaseLayer(k); layerMenu.classList.add("hidden"); } }, t.label)));
+      Object.entries(TILES).map(([k, t]) => h("button", { type: "button", "data-layer": k, class: session.layer === k ? "active" : "", onclick: () => { setBaseLayer(k); layerMenu.classList.add("hidden"); } }, t.label)),
+      boundsToggle,
+      h("div", { class: "muted map-bounds-note" }, BOUNDARY_DISCLAIMER));
     const fabs = h("div", { class: "map-fabs" },
-      h("button", { class: "map-fab", title: "Подложка", "aria-label": "Слой карты", onclick: () => layerMenu.classList.toggle("hidden") }, "🗺"),
+      h("button", { class: "map-fab", title: "Подложка", "aria-label": "Слой карты", onclick: () => { const ap = document.getElementById("map-attr-panel"); if (ap) ap.classList.add("hidden"); layerMenu.classList.toggle("hidden"); } }, "🗺"),
       h("button", { class: "map-fab", title: "Моё место", "aria-label": "Центрировать на мне", onclick: () => relocate(true) }, "◎"),
       h("button", { class: "map-fab", title: "Метка здесь", "aria-label": "Поставить метку здесь", onclick: () => {
         if (session.pos) openForm(null, { lat: session.pos.lat, lng: session.pos.lon });
         else { Z.toast("Сначала определите своё место."); relocate(true); }
       } }, "📌"),
       h("button", { class: "map-fab", title: "Список меток", "aria-label": "Список меток", onclick: openList }, "☰"));
-    bannerEl = h("div", { class: "map-banner hidden" });
+    bannerEl = h("div", { class: "map-banner hidden", role: "status" });
     panelEl = h("div", { class: "map-panel" }, panelContent());
     sheetEl = h("div", { class: "map-sheet hidden" });
-    root.append(fabs, layerMenu, bannerEl, panelEl, sheetEl);
+    const attrBtn = h("button", { type: "button", id: "map-attr-btn", class: "map-attr-btn", title: "Источники карты", "aria-label": "Источники карты", "aria-expanded": "false", onclick: toggleAttr }, "ⓘ");
+    const attrPanel = h("div", { id: "map-attr-panel", class: "map-attr-panel hidden" });
+    root.append(fabs, layerMenu, bannerEl, panelEl, sheetEl, attrBtn, attrPanel);
   }
 
   function cleanup() {
@@ -522,10 +641,10 @@
 
     const start = session.pos || (placesCache[0] ? { lat: placesCache[0].lat, lon: placesCache[0].lon, zoom: 12 } :
       (marksCache[0] ? { lat: marksCache[0].lat, lon: marksCache[0].lon, zoom: 13 } : HOME));
-    map = L.map(mapEl, { zoomControl: true, attributionControl: true }).setView([start.lat, start.lon], start.zoom || 13);
+    map = L.map(mapEl, { zoomControl: true, attributionControl: false }).setView([start.lat, start.lon], start.zoom || 13);
     layers = {};
     for (const [k, t] of Object.entries(TILES)) {
-      layers[k] = L.tileLayer(t.url, { attribution: t.attr, maxZoom: t.maxZoom, updateWhenIdle: true });
+      layers[k] = L.tileLayer(t.url, { attribution: "", maxZoom: t.maxZoom, updateWhenIdle: true });
     }
     setBaseLayer(session.layer);
     markLayer = L.layerGroup().addTo(map);
@@ -544,7 +663,8 @@
 
     boundsLayer = await loadBoundaries(L);
     if (Z.state.tab !== "map" || !map) return;
-    if (boundsLayer && boundsLayer.getLayers && boundsLayer.getLayers().length) boundsLayer.addTo(map);
+    if (boundsLayer && boundsLayer.getLayers && boundsLayer.getLayers().length && session.showBounds) boundsLayer.addTo(map);
+    refreshAttr();
 
     session.stopLoc = startLocation((p) => {
       session.pos = p;

@@ -155,10 +155,55 @@
     return null;
   };
 
+
+  /** Тексты ошибок геопозиции: никогда не показываем сырые коды вроде WebAppLocationManagerLocationNotAvailable. */
+  const GEO_TEXT = {
+    geo_denied: "Геопозиция запрещена. Разрешите доступ в настройках.",
+    geo_unavailable: "На этом устройстве Telegram не даёт геопозицию. Открой Зорьку на телефоне или разреши доступ к местоположению.",
+    geo_timeout: "Не удалось определить местоположение: истекло время ожидания.",
+    geo_unsupported: "Это устройство не умеет определять местоположение.",
+    geo_generic: "Не удалось определить местоположение.",
+  };
+  const GEO_UNAVAILABLE_RE = /LocationNotAvailable|LOCATION_NOT_AVAILABLE|isLocationAvailable|WebAppMethodUnsupported|MethodUnsupported|not available|POSITION_UNAVAILABLE|location.?unavailable/i;
+  const GEO_DENIED_RE = /PERMISSION_DENIED|permission.?denied|access.?denied|not.?granted|User denied/i;
+  const GEO_TIMEOUT_RE = /TIMEOUT|timed? ?out|Position.?Timeout/i;
+  const GEO_CODE_RE = /WebApp[A-Za-z0-9]+|[A-Z]{3,}(?:_[A-Z0-9]+)+/;
+  function classifyGeoRaw(raw) {
+    const s = String(raw == null ? "" : raw);
+    if (GEO_DENIED_RE.test(s)) return "geo_denied";
+    if (GEO_TIMEOUT_RE.test(s)) return "geo_timeout";
+    if (GEO_UNAVAILABLE_RE.test(s)) return "geo_unavailable";
+    if (/unsupported|not supported|not.?capable/i.test(s)) return "geo_unsupported";
+    return null;
+  }
+  /**
+   * Любая ошибка геопозиции (объект, код Telegram, код браузера 1/2/3) → { code, message, settings }.
+   * message всегда по-русски, без технических кодов.
+   */
+  function describeGeoError(err) {
+    let code = null;
+    if (err && typeof err === "object") {
+      if (err.code === 1 || err.code === "geo_denied") code = "geo_denied";
+      else if (err.code === 3 || err.code === "geo_timeout") code = "geo_timeout";
+      else if (err.code === "geo_unavailable" || err.code === "geo_unsupported" || err.code === "geo_generic") code = err.code;
+      else if (err.code === 2) code = "geo_generic";
+      if (!code) code = classifyGeoRaw([err.message, err.code, err.error, err.name].filter((x) => x != null).join(" "));
+    } else if (err != null && err !== "") {
+      if (err === 1) code = "geo_denied";
+      else if (err === 3) code = "geo_timeout";
+      else if (err === 2) code = "geo_generic";
+      else code = classifyGeoRaw(err);
+    }
+    if (!code) code = "geo_generic";
+    return { code, message: GEO_TEXT[code] || GEO_TEXT.geo_generic, settings: code === "geo_denied" };
+  }
+  const shouldFallbackFromTelegram = (info) => info && info.code !== "geo_denied";
+
   return {
     EARTH_M, COORD_DECIMALS, MAX_MARKS, NAME_MAX, NOTE_MAX, CALM_MS, MARK_TYPES, TYPE_BY,
     compassShort, compassTo, compassFrom, distance, bearing, relativeBearing, formatDistance, formatAzimuth,
     scentDrift, approachAdvice, currentWind, roundCoord, validCoord, cleanText, normalizeMark,
     packMark, unpackMark, markPublic, defaultNavTarget, parseMarkId, headingFromOrientation, norm360,
+    GEO_TEXT, describeGeoError, classifyGeoRaw, shouldFallbackFromTelegram,
   };
 });

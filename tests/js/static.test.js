@@ -95,10 +95,28 @@ test("вкладка «Карта» есть в меню, Leaflet лежит в 
   }
 });
 
-test("загрузчик границ угодий молча переживает отсутствие файлов и есть папка data/boundaries", () => {
+test("каталог границ: файлы на месте, загрузчик и оговорка есть, черновик Абинского не включён", () => {
   const map = read("map.js");
   assert.match(map, /data\/boundaries\/index\.json/);
   assert.match(map, /общедоступ|закрепл|ООПТ|oopt/i);
   assert.ok(fs.existsSync(path.join(WEBAPP, "data", "boundaries")));
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(WEBAPP, "data", "boundaries", "index.json"), "utf8")), []);
+  const catalog = JSON.parse(fs.readFileSync(path.join(WEBAPP, "data", "boundaries", "index.json"), "utf8"));
+  assert.ok(Array.isArray(catalog) && catalog.length >= 3);
+  const files = catalog.map((e) => e.file);
+  assert.ok(files.includes("adygea_maykop.geojson") && files.includes("oopt_adygea.geojson") && files.includes("oopt_krasnodar.geojson"));
+  assert.ok(!files.some((f) => /abinsky/i.test(f)));
+  for (const e of catalog) {
+    assert.ok(e.file && e.region && e.type, JSON.stringify(e));
+    const geo = readJSON(WEBAPP, "data", "boundaries", e.file);
+    assert.ok(Array.isArray(geo.features) && geo.features.length, e.file);
+    assert.ok(geo.features.every((f) => f.geometry && f.properties && f.properties.name));
+  }
+  assert.equal(readJSON(WEBAPP, "data", "boundaries", "adygea_maykop.geojson").features.length, 2);
+  assert.equal(readJSON(WEBAPP, "data", "boundaries", "oopt_adygea.geojson").features.length, 7);
+  assert.equal(readJSON(WEBAPP, "data", "boundaries", "oopt_krasnodar.geojson").features.length, 71);
+  assert.match(map, /Границы ориентировочные, по официальным схемам; не проверены — сверяйтесь с охотпользователем/);
+  assert.match(map, /OSM contributors \(ODbL\)/);
+  assert.match(map, /map-attr-btn/);
+  assert.match(map, /describeGeoError/);
+
 });
