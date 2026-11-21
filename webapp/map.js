@@ -72,25 +72,83 @@
     heading: p.coords.heading != null && p.coords.heading >= 0 ? p.coords.heading : null, source,
   });
   const geoFail = (err) => { const info = N.describeGeoError(err); return Object.assign(new Error(info.message), info); };
-  const telegramCapable = (tg) => {
+  const withTimeout = (promise, ms) => new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(geoFail({ code: "geo_timeout" })), ms);
+    promise.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(geoFail(e)); });
+  });
+
+  // Один экземпляр на всё открытие Mini App: init LocationManager один раз, один poll/watch,
+  // без повторного запроса разрешения при каждом заходе на вкладку и без запасного browser-prompt.
+  const locRuntime = {
+    initPromise: null, pollTimer: null, watchId: null, starting: false,
+    listeners: [], lastPos: null, remembered: null, rememberedLoaded: false,
+    browserPermission: null, asked: false,
+  };
+  function lmUsable(tg) {
     const lm = tg && tg.LocationManager;
     if (!lm) return false;
     if (tg.isVersionAtLeast && !tg.isVersionAtLeast("8.0")) return false;
-    if (lm.isLocationAvailable === false) return false;
     return true;
-  };
-  function browserLocation() {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) return reject(geoFail({ code: "geo_unsupported" }));
-      navigator.geolocation.getCurrentPosition(
-        (p) => resolve(fromBrowserPos(p, "browser")),
-        (err) => reject(geoFail(err)),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 4000 });
-    });
   }
-  function telegramLocation(tg) {
+  function lmSnapshot(tg) {
+    const lm = tg && tg.LocationManager;
+    const versionOk = !tg || !tg.isVersionAtLeast || tg.isVersionAtLeast("8.0");
+    return {
+      hasManager: !!(lm && versionOk),
+      versionOk,
+      isLocationAvailable: lm ? lm.isLocationAvailable : null,
+      isInited: !!(lm && lm.isInited),
+      isAccessRequested: !!(lm && lm.isAccessRequested),
+      isAccessGranted: !!(lm && lm.isAccessGranted),
+      remembered: locRuntime.remembered,
+      browserPermission: locRuntime.browserPermission,
+      asked: locRuntime.asked,
+    };
+  }
+  function ensureLmInit(tg) {
+    const lm = tg && tg.LocationManager;
+    if (!lmUsable(tg) || !lm) return Promise.resolve(null);
+    if (lm.isInited) return Promise.resolve(lm);
+    if (locRuntime.initPromise) return locRuntime.initPromise;
+    locRuntime.initPromise = new Promise((resolve) => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; resolve(lm); };
+      try {
+        const ret = lm.init((res) => { finish(res); });
+        if (ret && typeof ret.then === "function") ret.then(() => finish(), () => finish());
+      } catch (e) { finish(); }
+      setTimeout(finish, 5000);
+    });
+    return locRuntime.initPromise;
+  }
+  async function loadRemembered() {
+    if (locRuntime.rememberedLoaded) return locRuntime.remembered;
+    try {
+      const r = await Z.api("/geo");
+      locRuntime.remembered = (r && (r.status === "granted" || r.status === "denied")) ? r.status : null;
+    } catch (e) { locRuntime.remembered = null; }
+    locRuntime.rememberedLoaded = true;
+    return locRuntime.remembered;
+  }
+  async function saveRemembered(status) {
+    locRuntime.remembered = status;
+    locRuntime.rememberedLoaded = true;
+    try { await Z.post("/geo", { status }); } catch (e) { /* хранилище недоступно — флаг всё равно в сессии */ }
+  }
+  async function queryBrowserPermission() {
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        const s = await navigator.permissions.query({ name: "geolocation" });
+        locRuntime.browserPermission = s && s.state ? s.state : null;
+        return locRuntime.browserPermission;
+      }
+    } catch (e) { /* iOS и часть WebView не умеют query */ }
+    return locRuntime.browserPermission;
+  }
+  function telegramGetLocation(tg) {
     return new Promise((resolve, reject) => {
-      const lm = tg.LocationManager;
+      const lm = tg && tg.LocationManager;
+      if (!lm) return reject(geoFail({ code: "geo_unavailable" }));
       if (lm.isLocationAvailable === false) return reject(geoFail({ code: "geo_unavailable", message: "WebAppLocationManagerLocationNotAvailable" }));
       if (lm.isAccessRequested && !lm.isAccessGranted) return reject(geoFail({ code: "geo_denied", settings: true }));
       const finish = (loc) => {
@@ -105,63 +163,112 @@
           });
         } catch (e) { reject(geoFail(e)); }
       };
-      const start = () => {
-        try {
-          const ret = lm.getLocation(finish);
-          if (ret && typeof ret.then === "function") ret.then(finish, (e) => reject(geoFail(e)));
-        } catch (e) { reject(geoFail(e)); }
-      };
       try {
-        if (lm.isInited) start();
-        else lm.init((res) => {
-          if (res === false || (res && (res.error || res === "WebAppLocationManagerLocationNotAvailable"))) return reject(geoFail(res && res.error ? res.error : res || { code: "geo_unavailable" }));
-          start();
-        });
+        const ret = lm.getLocation(finish);
+        if (ret && typeof ret.then === "function") ret.then(finish, (e) => reject(geoFail(e)));
       } catch (e) { reject(geoFail(e)); }
     });
   }
-  function withTimeout(promise, ms) {
+  function startOrReuseBrowserWatch() {
     return new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(geoFail({ code: "geo_timeout" })), ms);
-      promise.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(geoFail(e)); });
+      if (!navigator.geolocation || !navigator.geolocation.watchPosition) {
+        return reject(geoFail({ code: "geo_unsupported" }));
+      }
+      if (locRuntime.watchId != null) {
+        if (locRuntime.lastPos && locRuntime.lastPos.source === "browser") return resolve(locRuntime.lastPos);
+        locRuntime._browserWait = { resolve, reject };
+        return;
+      }
+      locRuntime._browserWait = { resolve, reject };
+      locRuntime.watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const p = fromBrowserPos(pos, "browser");
+          const wait = locRuntime._browserWait;
+          locRuntime._browserWait = null;
+          if (wait) wait.resolve(p);
+          else emitLocPos(p);
+        },
+        (err) => {
+          const fail = geoFail(err);
+          if (N.describeGeoError(fail).code === "geo_denied") saveRemembered("denied");
+          const wait = locRuntime._browserWait;
+          locRuntime._browserWait = null;
+          if (wait) wait.reject(fail);
+          else emitLocErr(fail);
+        },
+        { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
     });
   }
-  /** Telegram LocationManager, при недоступности — navigator.geolocation. Отказ в доступе не подменяем молча. */
-  async function requestLocation(tg) {
-    let last = null;
-    if (telegramCapable(tg)) {
-      try { return await withTimeout(telegramLocation(tg), 8000); }
-      catch (e) {
-        last = e;
-        if (!N.shouldFallbackFromTelegram(N.describeGeoError(e))) throw geoFail(e);
-      }
-    } else if (tg && tg.LocationManager && tg.LocationManager.isLocationAvailable === false) {
-      last = geoFail({ code: "geo_unavailable", message: "WebAppLocationManagerLocationNotAvailable" });
+  async function obtainLocation(opts) {
+    const poll = !!(opts && opts.poll);
+    const tg = Z.tg;
+    await loadRemembered();
+    if (lmUsable(tg)) await ensureLmInit(tg);
+    const snap0 = lmSnapshot(tg);
+    if (!(snap0.hasManager && snap0.versionOk && snap0.isLocationAvailable !== false)) {
+      await queryBrowserPermission();
     }
-    try { return await browserLocation(); }
-    catch (e) {
-      const prefer = last && N.describeGeoError(last).code === "geo_unavailable" ? last : e;
-      throw geoFail(prefer);
+    let action = N.geoDecision(lmSnapshot(tg));
+    if (poll && action === "request") action = "settings";
+    if (action === "request") locRuntime.asked = true;
+    if (action === "settings") throw geoFail({ code: "geo_denied", settings: true });
+    if (action === "get" || action === "request") {
+      const p = await withTimeout(telegramGetLocation(tg), 8000);
+      await saveRemembered("granted");
+      return p;
+    }
+    if (locRuntime.browserPermission === "denied" || locRuntime.remembered === "denied") {
+      throw geoFail({ code: "geo_denied", settings: true });
+    }
+    const p = await startOrReuseBrowserWatch();
+    await saveRemembered("granted");
+    return p;
+  }
+  function emitLocPos(p) {
+    locRuntime.lastPos = p;
+    locRuntime.listeners.forEach((l) => { try { l.onPos(p); } catch (e) { /* */ } });
+  }
+  function emitLocErr(e) {
+    const err = geoFail(e);
+    locRuntime.listeners.forEach((l) => { try { l.onErr(err); } catch (x) { /* */ } });
+  }
+  async function locTick(opts) {
+    try {
+      const p = await obtainLocation(opts);
+      emitLocPos(p);
+    } catch (e) {
+      const info = N.describeGeoError(e);
+      if (info.code === "geo_denied") { await saveRemembered("denied"); emitLocErr(e); return; }
+      if (locRuntime.lastPos && info.code === "geo_timeout") return;
+      emitLocErr(e);
     }
   }
+  function ensureLocLoop() {
+    if (locRuntime.pollTimer || locRuntime.watchId != null || locRuntime.starting) {
+      return;
+    }
+    locRuntime.starting = true;
+    locTick({ poll: false }).finally(() => {
+      locRuntime.starting = false;
+      if (locRuntime.watchId != null) return;          // браузер сам шлёт обновления
+      if (locRuntime.pollTimer) return;
+      locRuntime.pollTimer = setInterval(() => {
+        const action = N.geoDecision(lmSnapshot(Z.tg));
+        if (action !== "get") return;                  // повторно не спрашиваем разрешение
+        locTick({ poll: true });
+      }, 8000);
+    });
+  }
+  /** Слушатель геопозиции на всё время сессии. Снятие слушателя не останавливает общий poll/watch и не делает init заново. */
   function startLocation(onPos, onErr) {
-    let timer = null, watchId = null, stopped = false;
-    const tick = () => {
-      requestLocation(Z.tg).then((p) => {
-        if (stopped) return;
-        onPos(p);
-        if (p.source === "browser" && navigator.geolocation && navigator.geolocation.watchPosition && watchId == null) {
-          if (timer) { clearInterval(timer); timer = null; }
-          watchId = navigator.geolocation.watchPosition(
-            (pos) => { if (!stopped) onPos(fromBrowserPos(pos, "browser")); },
-            (err) => { if (!stopped) onErr(geoFail(err)); },
-            { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
-        }
-      }, (e) => { if (!stopped) onErr(geoFail(e)); });
-    };
-    tick();
-    timer = setInterval(() => { if (!stopped && watchId == null) tick(); }, 8000);
-    return () => { stopped = true; if (timer) clearInterval(timer); if (watchId != null && navigator.geolocation) navigator.geolocation.clearWatch(watchId); };
+    const sub = { onPos, onErr };
+    locRuntime.listeners.push(sub);
+    if (locRuntime.lastPos) try { onPos(locRuntime.lastPos); } catch (e) { /* */ }
+    ensureLocLoop();
+    return () => { locRuntime.listeners = locRuntime.listeners.filter((x) => x !== sub); };
+  }
+  function requestLocation() {
+    return obtainLocation({ poll: false });
   }
   function openGeoSettings() {
     const tg = Z.tg, lm = tg && tg.LocationManager;

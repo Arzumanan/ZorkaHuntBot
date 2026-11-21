@@ -5,7 +5,8 @@
      marks           {seq, list:[{id,t,n,o,lat,lon}]}             — метки навигатора (тип, имя, заметка, координаты)
      ck_<вид>        {seq, checked:[ключи шаблона], custom:[{id,cat,text,checked}]} — чек-лист по виду охоты
      j_<ГГГГММДД>_<id>  {d,p,s,n}                                — одна запись журнала в одном ключе
-     mig             {state, at}                                  — перенос из старой базы (imported | done | skipped) */
+     mig             {state, at}                                  — перенос из старой базы (imported | done | skipped)
+     geo             {status, at}                                 — согласие на геопозицию (granted | denied) */
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
   const need = (n) => (node ? require("./" + n + ".js") : root.ZL[n]);
@@ -333,6 +334,19 @@
       await store.put("marks", raw);
     });
 
+    // ---------- согласие на геопозицию (спрашиваем один раз) ----------
+    async function getGeo() {
+      const g = (await store.get("geo")) || {};
+      const status = (g.status === "granted" || g.status === "denied") ? g.status : null;
+      return { status, at: g.at || null };
+    }
+    const setGeo = (status) => locked(async () => {
+      if (status !== "granted" && status !== "denied") fail(400, "bad_geo", "Некорректный статус геопозиции.");
+      const rec = { status, at: now().toISOString() };
+      await store.put("geo", rec);
+      return rec;
+    });
+
     // ---------- перенос: состояние ----------
     const getMigration = () => store.get("mig");
     const setMigration = (state) => locked(() => store.put("mig", { state, at: now().toISOString() }));
@@ -348,7 +362,7 @@
     return { LIMITS, TIMEZONES, AUTO_TZ, getMeta, patchMeta, today, listPlaces, addPlace, updatePlace, deletePlace,
       listMarks, addMark, updateMark, deleteMark, checklistPayload,
       setHuntType, toggleItem, addCustomItem, deleteCustomItem, resetChecks, allRecords, addRecord, deleteRecord, importLegacy,
-      getMigration, setMigration, deleteAll };
+      getGeo, setGeo, getMigration, setMigration, deleteAll };
   }
 
   return { LIMITS, TIMEZONES, AUTO_TZ, ApiError, fail, cleanText, validCoord, createData };

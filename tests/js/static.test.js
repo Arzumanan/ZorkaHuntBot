@@ -139,3 +139,15 @@ test("список «Вернуться к…» не пересобираетс�
   assert.match(map, /scheduleWind\(\);\s*updateNavLive\(\)/);
   assert.match(map, /drawWindArrow\(\);\s*updateWindLive\(\)/);
 });
+
+test("геолокация: LocationManager спрашивает разрешение один раз, без getCurrentPosition на каждый опрос", () => {
+  const map = read("map.js");
+  const nav = read("lib/nav.js");
+  assert.match(nav, /function geoDecision\s*\(/);
+  assert.match(map, /geoDecision/);
+  assert.match(map, /ensureLmInit/);
+  assert.match(map, /locRuntime/);
+  assert.ok(!/getCurrentPosition/.test(map), "getCurrentPosition в WebView Telegram снова показывает окно разрешения");
+  assert.match(map, /watchPosition/);
+  assert.ok(!/shouldFallbackFromTelegram/.test(map));
+});

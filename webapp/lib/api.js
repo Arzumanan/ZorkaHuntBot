@@ -206,6 +206,8 @@
         case "POST /marks": return { ok: true, mark: await data.addMark(body) };
         case "POST /marks/update": return { ok: true, mark: await data.updateMark(body.id, body) };
         case "POST /marks/delete": await data.deleteMark(body.id); return { ok: true };
+        case "GET /geo": return data.getGeo();
+        case "POST /geo": return Object.assign({ ok: true }, await data.setGeo(body && body.status));
         case "GET /storage": return Object.assign({ kind: store.kind }, await store.usage());
         case "POST /data/delete-all": { const removed = await data.deleteAll(); forecastCache.clear(); return { ok: true, removed }; }
         default: return fail(404, "not_found", "Неизвестный запрос: " + key);

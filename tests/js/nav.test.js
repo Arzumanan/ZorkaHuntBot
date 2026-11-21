@@ -195,3 +195,31 @@ test("обновление курса и позиции не трогает сп
   const renamed = [{ ...marks[0], name: "Вышка" }, marks[1]];
   assert.notEqual(N.marksKey(renamed), key);
 });
+
+test("геопозиция: решение по состоянию LocationManager — спросить один раз, потом молча или в настройки", () => {
+  const d = (s) => N.geoDecision(s);
+  // LocationManager есть и уже разрешён — только getLocation, без нового запроса
+  assert.equal(d({ hasManager: true, isLocationAvailable: true, isAccessRequested: true, isAccessGranted: true }), "get");
+  // уже спрашивали и отказали — только настройки, не браузер (иначе Android WebView спросит снова)
+  assert.equal(d({ hasManager: true, isLocationAvailable: true, isAccessRequested: true, isAccessGranted: false }), "settings");
+  // ещё не спрашивали — один запрос через Telegram
+  assert.equal(d({ hasManager: true, isLocationAvailable: true, isAccessRequested: false, isAccessGranted: false }), "request");
+  // уже спрашивали в этой сессии — больше не пристаём
+  assert.equal(d({ hasManager: true, isLocationAvailable: true, isAccessRequested: false, asked: true }), "settings");
+  // запомнили отказ
+  assert.equal(d({ hasManager: true, isLocationAvailable: true, isAccessRequested: false, remembered: "denied" }), "settings");
+  // запомнили согласие — молча, даже если флаги Telegram ещё пустые
+  assert.equal(d({ hasManager: true, isLocationAvailable: true, isAccessRequested: false, remembered: "granted" }), "get");
+  // LM есть, но на устройстве недоступен — запасной путь браузера
+  assert.equal(d({ hasManager: true, isLocationAvailable: false }), "browser");
+  assert.equal(d({ hasManager: true, versionOk: false, isLocationAvailable: true }), "browser");
+  assert.equal(d({ hasManager: false }), "browser");
+  assert.equal(d({}), "browser");
+  // браузер уже запретил — не вызываем geolocation, чтобы не было нового окна
+  assert.equal(d({ hasManager: false, browserPermission: "denied" }), "settings");
+  assert.equal(d({ hasManager: true, isLocationAvailable: false, remembered: "denied" }), "settings");
+  assert.equal(d({ hasManager: false, browserPermission: "granted" }), "browser");
+  assert.equal(d({ hasManager: false, browserPermission: "prompt" }), "browser");
+  // отказ в LM важнее запомненного согласия
+  assert.equal(d({ hasManager: true, isLocationAvailable: true, isAccessRequested: true, isAccessGranted: false, remembered: "granted" }), "settings");
+});

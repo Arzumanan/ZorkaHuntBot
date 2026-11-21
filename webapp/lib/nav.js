@@ -240,6 +240,30 @@
     });
   }
 
+
+  /**
+   * Что делать с геопозицией, чтобы разрешение спрашивалось только один раз.
+   * Состояние LocationManager + наш флаг + (для запасного пути) permissions API.
+   * Возвращает: "get" — молча взять координаты; "request" — первый запрос разрешения;
+   * "settings" — уже отказано, показать баннер с настройками, не спрашивать снова;
+   * "browser" — нет LocationManager или он недоступен, использовать navigator.geolocation.
+   */
+  function geoDecision(state) {
+    const s = state || {};
+    const versionOk = s.versionOk !== false;
+    const lmUsable = !!(s.hasManager && versionOk && s.isLocationAvailable !== false);
+    if (!lmUsable) {
+      if (s.browserPermission === "denied" || s.remembered === "denied") return "settings";
+      return "browser";
+    }
+    if (s.isAccessRequested && s.isAccessGranted) return "get";
+    if (s.isAccessRequested && !s.isAccessGranted) return "settings";
+    if (s.remembered === "denied") return "settings";
+    if (s.asked) return "settings";
+    if (s.remembered === "granted") return "get";
+    return "request";
+  }
+
   const shouldFallbackFromTelegram = (info) => info && info.code !== "geo_denied";
 
   return {
@@ -248,6 +272,6 @@
     scentDrift, approachAdvice, currentWind, roundCoord, validCoord, cleanText, normalizeMark,
     packMark, unpackMark, markPublic, defaultNavTarget, parseMarkId, headingFromOrientation, norm360,
     GEO_TEXT, describeGeoError, classifyGeoRaw, shouldFallbackFromTelegram,
-    marksKey, uniqueMarks, targetOptionLabels,
+    marksKey, uniqueMarks, targetOptionLabels, geoDecision,
   };
 });

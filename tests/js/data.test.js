@@ -402,3 +402,16 @@ test("ветер в точке: направление, снос запаха и
   assert.equal(a.fetch.calls.length, n, "кэш ветра");
   await rejects(a.get("/wind?lat=91&lon=0"), "bad_coordinates", 400);
 });
+
+test("согласие на геопозицию запоминается и стирается вместе с остальными данными", async () => {
+  const a = await app();
+  assert.equal((await a.get("/geo")).status, null);
+  const g = await a.post("/geo", { status: "granted" });
+  assert.equal(g.status, "granted");
+  assert.equal((await a.get("/geo")).status, "granted");
+  await a.post("/geo", { status: "denied" });
+  assert.equal((await a.get("/geo")).status, "denied");
+  await rejects(a.post("/geo", { status: "maybe" }), "bad_geo", 400);
+  await a.post("/data/delete-all", {});
+  assert.equal((await a.get("/geo")).status, null);
+});
