@@ -31,7 +31,7 @@
   const TYPE_LABEL = { public: "Общедоступные угодья", assigned: "Закреплённые угодья", protection: "Зона охраны", oopt: "ООПТ", excluded: "Охота запрещена" };
   const BOUNDARY_STYLE = {
     public: { color: "#2e7d32", weight: 2, fillOpacity: 0.14 },
-    assigned: { color: "#1565c0", weight: 2, fillOpacity: 0.14 },
+    assigned: { color: "#0d47a1", weight: 2.5, fillColor: "#1976d2", fillOpacity: 0.16, className: "bound-assigned" },
     protection: { color: "#e65100", weight: 2, fillOpacity: 0.16 },
     oopt: { color: "#6a1b9a", weight: 2, fillOpacity: 0.14 },
     excluded: { color: "#b71c1c", weight: 2, fillColor: "#e53935", fillOpacity: 0.22, dashArray: "5 4", className: "bound-excluded" },
@@ -40,6 +40,7 @@
     const s = String(t || "").toLowerCase();
     if (/запрещ|excluded|no.?hunt/.test(s)) return "excluded";
     if (/общедоступ|public/.test(s)) return "public";
+    if (/закрепл|assigned/.test(s)) return "assigned";
     if (/охран|protection/.test(s)) return "protection";
     if (/оопт|oopt|заповед|заказник/.test(s)) return "oopt";
     return "assigned";
@@ -397,7 +398,7 @@
               if (kind === "excluded") session.hasExcluded = true;
               const lines = [
                 TYPE_LABEL[kind] || null,
-                p.user || null,
+                p.user ? ("охотпользователь: " + p.user) : null,
                 p.address || null,
                 p.protection_title && p.protection_title !== p.name ? p.protection_title : null,
                 p.area_stated_ha ? ("площадь по акту: " + p.area_stated_ha + " га") : null,
@@ -828,6 +829,7 @@
       boundsToggle,
       h("div", { class: "map-legend", "aria-label": "Условные знаки границ" },
         h("div", { class: "map-legend-row" }, h("span", { class: "map-swatch map-swatch-public", "aria-hidden": "true" }), " Общедоступные угодья"),
+        h("div", { class: "map-legend-row" }, h("span", { class: "map-swatch map-swatch-assigned", "aria-hidden": "true" }), " Закреплённые угодья"),
         h("div", { class: "map-legend-row" }, h("span", { class: "map-swatch map-swatch-oopt", "aria-hidden": "true" }), " ООПТ"),
         h("div", { class: "map-legend-row" }, h("span", { class: "map-swatch map-swatch-excluded", "aria-hidden": "true" }), " Охота запрещена")),
       h("div", { class: "muted map-bounds-note" }, BOUNDARY_DISCLAIMER));

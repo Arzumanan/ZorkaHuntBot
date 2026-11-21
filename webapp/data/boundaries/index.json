@@ -70,6 +70,13 @@
     "title": "Горячий Ключ: общедоступные угодья (Постановление №464)"
   },
   {
+    "file": "krasnodar_gorod_krasnodar.geojson",
+    "region": "krasnodar",
+    "district": "gorod_krasnodar",
+    "type": "public",
+    "title": "Город Краснодар: общедоступные угодья (Постановление №464)"
+  },
+  {
     "file": "krasnodar_gorod_kurort_anapa.geojson",
     "region": "krasnodar",
     "district": "gorod_kurort_anapa",
@@ -103,6 +110,20 @@
     "district": "kavkazskiy",
     "type": "public",
     "title": "Кавказский район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_krasnoarmeyskiy.geojson",
+    "region": "krasnodar",
+    "district": "krasnoarmeyskiy",
+    "type": "public",
+    "title": "Красноармейский район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_severskiy.geojson",
+    "region": "krasnodar",
+    "district": "severskiy",
+    "type": "assigned",
+    "title": "Северский район: закреплённые угодья (Постановление №464)"
   },
   {
     "file": "krasnodar_vyselkovskiy.geojson",

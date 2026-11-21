@@ -115,22 +115,31 @@ test("каталог границ: файлы на месте, загрузчи�
   assert.equal(readJSON(WEBAPP, "data", "boundaries", "oopt_adygea.geojson").features.length, 7);
   assert.equal(readJSON(WEBAPP, "data", "boundaries", "oopt_krasnodar.geojson").features.length, 71);
   const types = new Set(catalog.map((e) => e.type));
-  assert.ok(types.has("public") && types.has("oopt") && types.has("excluded"), [...types].join(","));
+  assert.ok(types.has("public") && types.has("oopt") && types.has("excluded") && types.has("assigned"), [...types].join(","));
   assert.ok(files.includes("adygea_takhtamukay_excluded.geojson"));
   const excluded = readJSON(WEBAPP, "data", "boundaries", "adygea_takhtamukay_excluded.geojson");
   assert.equal(excluded.features.length, 27);
   assert.ok(excluded.features.every((f) => f.properties.type === "excluded" && f.properties.name && f.properties.source));
-  const kr = catalog.filter((e) => e.region === "krasnodar" && e.type === "public");
-  assert.equal(kr.length, 14);
-  let krFeats = 0;
-  for (const e of kr) {
+  const krPub = catalog.filter((e) => e.region === "krasnodar" && e.type === "public");
+  assert.equal(krPub.length, 16);
+  let krPubFeats = 0;
+  for (const e of krPub) {
     const geo = readJSON(WEBAPP, "data", "boundaries", e.file);
-    krFeats += geo.features.length;
+    krPubFeats += geo.features.length;
     assert.ok(geo.features.every((f) => f.properties.type === "public" && f.properties.name && f.properties.source && !f.properties.qa));
   }
-  assert.equal(krFeats, 31);
+  assert.equal(krPubFeats, 40);
+  assert.ok(files.includes("krasnodar_severskiy.geojson"));
+  const assigned = readJSON(WEBAPP, "data", "boundaries", "krasnodar_severskiy.geojson");
+  assert.equal(assigned.features.length, 8);
+  assert.ok(assigned.features.every((f) => f.properties.type === "assigned" && f.properties.user && f.properties.name && f.properties.source && !f.properties.qa));
+  const krAsn = catalog.filter((e) => e.region === "krasnodar" && e.type === "assigned");
+  assert.equal(krAsn.length, 1);
   assert.match(map, /Охота запрещена/);
+  assert.match(map, /Закреплённые угодья/);
+  assert.match(map, /охотпользователь/);
   assert.match(map, /bound-excluded/);
+  assert.match(map, /bound-assigned/);
   assert.match(map, /Границы ориентировочные, по официальным схемам; не проверены — сверяйтесь с охотпользователем/);
   assert.match(map, /OSM contributors \(ODbL\)/);
   assert.match(map, /map-attr-btn/);
