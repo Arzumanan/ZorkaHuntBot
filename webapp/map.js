@@ -28,24 +28,48 @@
   };
   const OOPT_ATTR = { href: "https://www.openstreetmap.org/copyright", text: "ООПТ: OSM contributors (ODbL)" };
   const BOUNDARY_DISCLAIMER = "Границы ориентировочные, по официальным схемам; не проверены — сверяйтесь с охотпользователем";
-  const TYPE_LABEL = { public: "Общедоступные угодья", assigned: "Закреплённые угодья", protection: "Зона охраны", oopt: "ООПТ" };
+  const TYPE_LABEL = { public: "Общедоступные угодья", assigned: "Закреплённые угодья", protection: "Зона охраны", oopt: "ООПТ", excluded: "Охота запрещена" };
   const BOUNDARY_STYLE = {
     public: { color: "#2e7d32", weight: 2, fillOpacity: 0.14 },
     assigned: { color: "#1565c0", weight: 2, fillOpacity: 0.14 },
     protection: { color: "#e65100", weight: 2, fillOpacity: 0.16 },
     oopt: { color: "#6a1b9a", weight: 2, fillOpacity: 0.14 },
+    excluded: { color: "#b71c1c", weight: 2, fillColor: "#e53935", fillOpacity: 0.22, dashArray: "5 4", className: "bound-excluded" },
   };
   function boundaryKind(t) {
     const s = String(t || "").toLowerCase();
+    if (/запрещ|excluded|no.?hunt/.test(s)) return "excluded";
     if (/общедоступ|public/.test(s)) return "public";
     if (/охран|protection/.test(s)) return "protection";
     if (/оопт|oopt|заповед|заказник/.test(s)) return "oopt";
     return "assigned";
   }
+  function ensureExcludedHatch(leafMap) {
+    if (!leafMap || !leafMap.getPanes) return;
+    const pane = leafMap.getPanes().overlayPane;
+    const svg = pane && pane.querySelector("svg");
+    if (!svg || svg.querySelector("#zorka-hatch-excluded")) return;
+    const ns = "http://www.w3.org/2000/svg";
+    let defs = svg.querySelector("defs");
+    if (!defs) { defs = document.createElementNS(ns, "defs"); svg.insertBefore(defs, svg.firstChild); }
+    const pat = document.createElementNS(ns, "pattern");
+    pat.setAttribute("id", "zorka-hatch-excluded");
+    pat.setAttribute("patternUnits", "userSpaceOnUse");
+    pat.setAttribute("width", "8");
+    pat.setAttribute("height", "8");
+    pat.setAttribute("patternTransform", "rotate(45)");
+    const bg = document.createElementNS(ns, "rect");
+    bg.setAttribute("width", "8"); bg.setAttribute("height", "8"); bg.setAttribute("fill", "rgba(198,40,40,0.12)");
+    const ln = document.createElementNS(ns, "line");
+    ln.setAttribute("x1", "0"); ln.setAttribute("y1", "0"); ln.setAttribute("x2", "0"); ln.setAttribute("y2", "8");
+    ln.setAttribute("stroke", "#c62828"); ln.setAttribute("stroke-width", "3");
+    pat.append(bg, ln);
+    defs.appendChild(pat);
+  }
 
   let leafletPromise = null, map = null, layers = {}, meMarker = null, meCircle = null, targetLine = null;
   let markLayer = null, placeLayer = null, windLayer = null, boundsLayer = null;
-  let session = { layer: "esri", targetId: null, heading: null, pos: null, wind: null, showBounds: true, hasOopt: false };
+  let session = { layer: "esri", targetId: null, heading: null, pos: null, wind: null, showBounds: true, hasOopt: false, hasExcluded: false };
 
   function loadLeaflet() {
     if (window.L) return Promise.resolve(window.L);
@@ -350,6 +374,7 @@
   async function loadBoundaries(leaf) {
     const group = leaf.layerGroup();
     session.hasOopt = false;
+    session.hasExcluded = false;
     try {
       const resp = await fetch("data/boundaries/index.json" + qs);
       if (!resp.ok) return group;
@@ -369,9 +394,11 @@
               const p = (f && f.properties) || {};
               const kind = boundaryKind(p.type || p.kind || fallbackType);
               if (kind === "oopt") session.hasOopt = true;
+              if (kind === "excluded") session.hasExcluded = true;
               const lines = [
                 TYPE_LABEL[kind] || null,
                 p.user || null,
+                p.address || null,
                 p.protection_title && p.protection_title !== p.name ? p.protection_title : null,
                 p.area_stated_ha ? ("площадь по акту: " + p.area_stated_ha + " га") : null,
                 p.source || null,
@@ -746,6 +773,7 @@
       if (Z.state.tab !== "map" || !map) return group;
       boundsLayer = group;
       if (session.showBounds && group && group.getLayers && group.getLayers().length) group.addTo(map);
+      try { ensureExcludedHatch(map); } catch (e) { /* */ }
       refreshAttr();
       if (map) try { map.invalidateSize(); } catch (e) { /* */ }
       return group;
@@ -798,6 +826,10 @@
     const layerMenu = h("div", { id: "map-layer-menu", class: "map-layer-menu hidden" },
       Object.entries(TILES).map(([k, t]) => h("button", { type: "button", "data-layer": k, class: session.layer === k ? "active" : "", onclick: () => { setBaseLayer(k); layerMenu.classList.add("hidden"); } }, t.label)),
       boundsToggle,
+      h("div", { class: "map-legend", "aria-label": "Условные знаки границ" },
+        h("div", { class: "map-legend-row" }, h("span", { class: "map-swatch map-swatch-public", "aria-hidden": "true" }), " Общедоступные угодья"),
+        h("div", { class: "map-legend-row" }, h("span", { class: "map-swatch map-swatch-oopt", "aria-hidden": "true" }), " ООПТ"),
+        h("div", { class: "map-legend-row" }, h("span", { class: "map-swatch map-swatch-excluded", "aria-hidden": "true" }), " Охота запрещена")),
       h("div", { class: "muted map-bounds-note" }, BOUNDARY_DISCLAIMER));
     const fabs = h("div", { class: "map-fabs" },
       h("button", { class: "map-fab", title: "Подложка", "aria-label": "Слой карты", onclick: () => { const ap = document.getElementById("map-attr-panel"); if (ap) ap.classList.add("hidden"); layerMenu.classList.toggle("hidden"); } }, "🗺"),

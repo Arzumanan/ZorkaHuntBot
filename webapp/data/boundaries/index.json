@@ -7,6 +7,111 @@
     "title": "ОДОУ Майкопского района"
   },
   {
+    "file": "adygea_takhtamukay_excluded.geojson",
+    "region": "adygea",
+    "district": "takhtamukay",
+    "type": "excluded",
+    "title": "Тахтамукайский: охота запрещена (Указ №158)"
+  },
+  {
+    "file": "krasnodar_abinskiy.geojson",
+    "region": "krasnodar",
+    "district": "abinskiy",
+    "type": "public",
+    "title": "Абинский район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_apsheronskiy.geojson",
+    "region": "krasnodar",
+    "district": "apsheronskiy",
+    "type": "public",
+    "title": "Апшеронский район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_beloglinskiy.geojson",
+    "region": "krasnodar",
+    "district": "beloglinskiy",
+    "type": "public",
+    "title": "Белоглинский район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_belorechenskiy.geojson",
+    "region": "krasnodar",
+    "district": "belorechenskiy",
+    "type": "public",
+    "title": "Белореченский район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_bryukhovetskiy.geojson",
+    "region": "krasnodar",
+    "district": "bryukhovetskiy",
+    "type": "public",
+    "title": "Брюховецкий район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_dinskoy.geojson",
+    "region": "krasnodar",
+    "district": "dinskoy",
+    "type": "public",
+    "title": "Динской район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_eyskiy.geojson",
+    "region": "krasnodar",
+    "district": "eyskiy",
+    "type": "public",
+    "title": "Ейский район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_gorod_goryachiy_klyuch.geojson",
+    "region": "krasnodar",
+    "district": "gorod_goryachiy_klyuch",
+    "type": "public",
+    "title": "Горячий Ключ: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_gorod_kurort_anapa.geojson",
+    "region": "krasnodar",
+    "district": "gorod_kurort_anapa",
+    "type": "public",
+    "title": "Город-курорт Анапа: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_gulkevichskiy.geojson",
+    "region": "krasnodar",
+    "district": "gulkevichskiy",
+    "type": "public",
+    "title": "Гулькевичский район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_kalininskiy.geojson",
+    "region": "krasnodar",
+    "district": "kalininskiy",
+    "type": "public",
+    "title": "Калининский район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_kanevskoy.geojson",
+    "region": "krasnodar",
+    "district": "kanevskoy",
+    "type": "public",
+    "title": "Каневской район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_kavkazskiy.geojson",
+    "region": "krasnodar",
+    "district": "kavkazskiy",
+    "type": "public",
+    "title": "Кавказский район: общедоступные угодья (Постановление №464)"
+  },
+  {
+    "file": "krasnodar_vyselkovskiy.geojson",
+    "region": "krasnodar",
+    "district": "vyselkovskiy",
+    "type": "public",
+    "title": "Выселковский район: общедоступные угодья (Постановление №464)"
+  },
+  {
     "file": "oopt_adygea.geojson",
     "region": "adygea",
     "type": "oopt",

@@ -198,3 +198,12 @@ body.map-open #view { padding: 0; overflow: hidden; overscroll-behavior: none; m
 .map-attr-panel { position: absolute; top: 86px; left: 46px; z-index: 700; max-width: min(260px, calc(100% - 110px));
   background: var(--bg); color: var(--text); border-radius: 12px; padding: 8px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.25); font-size: 12px; }
 .map-attr-title { font-weight: 600; margin-bottom: 4px; }
+
+.bound-excluded { fill: url(#zorka-hatch-excluded) !important; }
+.map-legend { margin: 8px 0 4px; padding-top: 6px; border-top: 1px solid rgba(128,128,128,.25); font-size: 12px; }
+.map-legend-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--text); }
+.map-swatch { width: 16px; height: 10px; border-radius: 2px; flex: none; box-sizing: border-box; }
+.map-swatch-public { background: rgba(46,125,50,.28); border: 2px solid #2e7d32; }
+.map-swatch-oopt { background: rgba(106,27,154,.28); border: 2px solid #6a1b9a; }
+.map-swatch-excluded { border: 2px dashed #b71c1c; background:
+  repeating-linear-gradient(-45deg, rgba(229,57,53,.35), rgba(229,57,53,.35) 3px, rgba(229,57,53,.08) 3px, rgba(229,57,53,.08) 7px); }

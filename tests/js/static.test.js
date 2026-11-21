@@ -114,6 +114,23 @@ test("каталог границ: файлы на месте, загрузчи�
   assert.equal(readJSON(WEBAPP, "data", "boundaries", "adygea_maykop.geojson").features.length, 2);
   assert.equal(readJSON(WEBAPP, "data", "boundaries", "oopt_adygea.geojson").features.length, 7);
   assert.equal(readJSON(WEBAPP, "data", "boundaries", "oopt_krasnodar.geojson").features.length, 71);
+  const types = new Set(catalog.map((e) => e.type));
+  assert.ok(types.has("public") && types.has("oopt") && types.has("excluded"), [...types].join(","));
+  assert.ok(files.includes("adygea_takhtamukay_excluded.geojson"));
+  const excluded = readJSON(WEBAPP, "data", "boundaries", "adygea_takhtamukay_excluded.geojson");
+  assert.equal(excluded.features.length, 27);
+  assert.ok(excluded.features.every((f) => f.properties.type === "excluded" && f.properties.name && f.properties.source));
+  const kr = catalog.filter((e) => e.region === "krasnodar" && e.type === "public");
+  assert.equal(kr.length, 14);
+  let krFeats = 0;
+  for (const e of kr) {
+    const geo = readJSON(WEBAPP, "data", "boundaries", e.file);
+    krFeats += geo.features.length;
+    assert.ok(geo.features.every((f) => f.properties.type === "public" && f.properties.name && f.properties.source && !f.properties.qa));
+  }
+  assert.equal(krFeats, 31);
+  assert.match(map, /Охота запрещена/);
+  assert.match(map, /bound-excluded/);
   assert.match(map, /Границы ориентировочные, по официальным схемам; не проверены — сверяйтесь с охотпользователем/);
   assert.match(map, /OSM contributors \(ODbL\)/);
   assert.match(map, /map-attr-btn/);
