@@ -357,3 +357,48 @@ test("параллельные быстрые нажатия не теряют �
   await Promise.all(Array.from({ length: 8 }, (_, i) => a.post("/places", { lat: 40 + i, lon: 40, name: "П" + i })));
   assert.equal((await a.get("/places")).places.length, 8);
 });
+
+// ---------- метки навигатора ----------
+
+test("метки: добавление, правка, удаление, типы и предел 200", async () => {
+  const a = await app();
+  const empty = await a.get("/marks");
+  assert.equal(empty.marks.length, 0);
+  assert.equal(empty.max, 200);
+  assert.deepEqual(empty.types.map((t) => t.code), ["tower", "salt", "labaz", "flush", "car", "other"]);
+  const m = (await a.post("/marks", { type: "car", name: "  УАЗ ", note: "у клёна", lat: 45.04012345, lon: 38.98098765 })).mark;
+  assert.deepEqual([m.key, m.emoji, m.name, m.lat], ["m1", "🚗", "УАЗ", 45.040123]);
+  const tower = (await a.post("/marks", { type: "tower", lat: 45.1, lon: 39 })).mark;
+  assert.equal(tower.name, "Вышка");
+  const renamed = (await a.post("/marks/update", { id: m.id, name: "Нива" })).mark;
+  assert.equal(renamed.name, "Нива"); assert.equal(renamed.type, "car");
+  await rejects(a.post("/marks", { type: "нет", lat: 1, lon: 1 }), "bad_type", 400);
+  await rejects(a.post("/marks", { type: "car", lat: 91, lon: 0 }), "bad_coordinates", 400);
+  await rejects(a.post("/marks/delete", { id: 99 }), "not_found", 404);
+  await a.post("/marks/delete", { id: "m" + tower.id });
+  assert.equal((await a.get("/marks")).marks.length, 1);
+  const b = await app({ cs: a.cs });
+  assert.equal((await b.get("/marks")).marks[0].name, "Нива");
+  for (let i = 1; i < 200; i++) await a.post("/marks", { type: "other", name: "М" + i, lat: 44 + i / 10000, lon: 39 });
+  await rejects(a.post("/marks", { type: "other", lat: 1, lon: 1 }), "too_many", 400);
+  assert.ok([...a.cs.map.values()].every((v) => v.length <= 4096));
+});
+
+test("удаление всех данных стирает и метки", async () => {
+  const a = await app();
+  await a.post("/marks", { type: "car", lat: 45, lon: 39 });
+  await a.post("/data/delete-all", {});
+  assert.deepEqual((await a.get("/marks")).marks, []);
+  assert.deepEqual([...a.cs.map.keys()], ["mig"]);
+});
+
+test("ветер в точке: направление, снос запаха и кэш по округлённым координатам", async () => {
+  const a = await app({ now: new Date("2026-11-20T03:00:00Z") });
+  const w = await a.get("/wind?lat=45.0412&lon=38.979");
+  assert.ok(w.wind_direction != null || w.wind_speed != null);
+  assert.ok("scent_drift" in w && "scent_text" in w);
+  const n = a.fetch.calls.length;
+  await a.get("/wind?lat=45.0414&lon=38.9792");                         // тот же округлённый ключ (~100 м)
+  assert.equal(a.fetch.calls.length, n, "кэш ветра");
+  await rejects(a.get("/wind?lat=91&lon=0"), "bad_coordinates", 400);
+});

@@ -1,4 +1,4 @@
-/* Зорька — Mini App: точка входа. Вкладки: Прогноз (с активностью), Сезоны, Чек-лист, Журнал, Ещё. */
+/* Зорька — Mini App: точка входа. Вкладки: Прогноз (с активностью), Карта, Сезоны, Чек-лист, Журнал, Ещё. */
 (function () {
   "use strict";
   document.querySelectorAll("#nav button").forEach((b) => b.addEventListener("click", () => {

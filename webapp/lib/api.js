@@ -5,9 +5,9 @@
   const node = typeof module === "object" && module.exports;
   const need = (n) => (node ? require("./" + n + ".js") : root.ZL[n]);
   const api = factory(need("dates"), need("weather"), need("forecast"), need("seasons"), need("checklist"), need("stats"),
-    need("storage"), need("data"));
+    need("storage"), need("data"), need("nav"));
   if (node) module.exports = api; else { root.ZL = root.ZL || {}; root.ZL.api = api; }
-})(typeof self !== "undefined" ? self : this, function (D, W, F, S, CL, ST, storage, dataMod) {
+})(typeof self !== "undefined" ? self : this, function (D, W, F, S, CL, ST, storage, dataMod, N) {
   "use strict";
   const { ApiError, fail, cleanText, validCoord } = dataMod;
   const FORECAST_TTL_MS = 10 * 60 * 1000;
@@ -38,6 +38,22 @@
       const raw = await weatherCall(W.fetchForecast(deps.fetch, lat, lon).then((r) => { W.parseForecast(r); return r; }));   // битый ответ не кэшируем
       forecastCache.set(key, { t: now().getTime(), raw });
       return raw;
+    }
+
+
+    async function windAt(query) {
+      const lat = N.validCoord(query.get("lat"), -90, 90), lon = N.validCoord(query.get("lon"), -180, 180);
+      if (lat === null || lon === null) fail(400, "bad_coordinates", "Некорректные координаты.");
+      const raw = await rawForecast(N.roundCoord(lat, 3), N.roundCoord(lon, 3));   // кэш с шагом ~100 м
+      const w = N.currentWind(raw, now());
+      if (!w) fail(502, "weather_unavailable", "Сервис погоды недоступен, попробуйте чуть позже.");
+      const advice = N.approachAdvice(w.direction, w.speed);
+      return {
+        lat, lon, time: w.time, wind_direction: w.direction, wind_speed: w.speed, wind_gusts: w.gusts,
+        wind_direction_name: N.compassShort(w.direction), scent_drift: w.drift,
+        scent_drift_name: N.compassShort(w.drift), scent_text: advice ? advice.scentText : null,
+        approach_text: advice && !advice.calm ? advice.text : (advice ? advice.text : null), calm: !!(advice && advice.calm),
+      };
     }
 
     // ---------- точки для прогноза: угодья (по умолчанию первым), затем «текущее место» ----------
@@ -185,6 +201,11 @@
           }
           return Object.assign({ ok: true }, await settings());
         }
+        case "GET /wind": return windAt(url.searchParams);
+        case "GET /marks": return { marks: await data.listMarks(), types: N.MARK_TYPES, max: data.LIMITS.MAX_MARKS };
+        case "POST /marks": return { ok: true, mark: await data.addMark(body) };
+        case "POST /marks/update": return { ok: true, mark: await data.updateMark(body.id, body) };
+        case "POST /marks/delete": await data.deleteMark(body.id); return { ok: true };
         case "GET /storage": return Object.assign({ kind: store.kind }, await store.usage());
         case "POST /data/delete-all": { const removed = await data.deleteAll(); forecastCache.clear(); return { ok: true, removed }; }
         default: return fail(404, "not_found", "Неизвестный запрос: " + key);

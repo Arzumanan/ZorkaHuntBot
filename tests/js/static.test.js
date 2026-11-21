@@ -8,7 +8,7 @@ const { assert, WEBAPP, readJSON } = require("./helpers");
 const read = (...p) => fs.readFileSync(path.join(WEBAPP, ...p), "utf8");
 const html = read("index.html");
 const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
-const jsFiles = walk(WEBAPP).filter((f) => f.endsWith(".js"));
+const jsFiles = walk(WEBAPP).filter((f) => f.endsWith(".js") && !f.includes(path.sep + "vendor" + path.sep));
 const assets = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]);
 
 test("index.html: свои файлы подключены по относительным путям, существуют и версионированы одним ?v=", () => {
@@ -47,7 +47,7 @@ test("код обращается к /api только в разовом пер�
   }
   const external = new Set();
   for (const f of jsFiles) for (const m of fs.readFileSync(f, "utf8").matchAll(/https?:\/\/[a-z0-9.-]+/gi)) external.add(m[0]);
-  const allowed = ["https://api.open-meteo.com", "https://geocoding-api.open-meteo.com", "https://open-meteo.com", "https://t.me", "https://telegram.org", "http://www.w3.org", "http://local"];   // w3.org — пространство имён SVG; http://local — фиктивная база для разбора пути
+  const allowed = ["https://api.open-meteo.com", "https://geocoding-api.open-meteo.com", "https://open-meteo.com", "https://t.me", "https://telegram.org", "http://www.w3.org", "http://local", "https://tile.openstreetmap.org", "https://www.openstreetmap.org", "https://openstreetmap.org", "https://server.arcgisonline.com", "https://opentopomap.org", "https://a.tile.opentopomap.org"];   // w3.org — SVG; http://local — разбор пути; тайлы и атрибуция карты
   for (const u of external) assert.ok(allowed.some((a) => u.startsWith(a)), "посторонний адрес в коде: " + u);
 });
 
@@ -77,4 +77,28 @@ test("оговорки сохранены: «Информация справоч
 test("каждое значение текста выводится как текст: в UI нет присвоения разметки", () => {
   const core = read("core.js");
   assert.match(core, /textContent|createTextNode/);
+});
+
+test("вкладка «Карта» есть в меню, Leaflet лежит в vendor/ со своей лицензией и не подключается с CDN", () => {
+  assert.match(html, /data-tab="map"/);
+  assert.match(html, />Карта</);
+  assert.match(html, /src="map\.js\?v=/);
+  assert.match(html, /src="lib\/nav\.js\?v=/);
+  assert.ok(!/unpkg|cdnjs|jsdelivr|leaflet@/i.test(html));
+  const dir = path.join(WEBAPP, "vendor", "leaflet");
+  assert.ok(fs.existsSync(path.join(dir, "leaflet.js")) && fs.existsSync(path.join(dir, "leaflet.css")));
+  const lic = fs.readFileSync(path.join(dir, "LICENSE"), "utf8");
+  assert.match(lic, /BSD 2-Clause/);
+  assert.match(lic, /Volodymyr Agafonkin/);
+  for (const img of ["marker-icon.png", "marker-icon-2x.png", "marker-shadow.png", "layers.png", "layers-2x.png"]) {
+    assert.ok(fs.existsSync(path.join(dir, "images", img)), img);
+  }
+});
+
+test("загрузчик границ угодий молча переживает отсутствие файлов и есть папка data/boundaries", () => {
+  const map = read("map.js");
+  assert.match(map, /data\/boundaries\/index\.json/);
+  assert.match(map, /общедоступ|закрепл|ООПТ|oopt/i);
+  assert.ok(fs.existsSync(path.join(WEBAPP, "data", "boundaries")));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(WEBAPP, "data", "boundaries", "index.json"), "utf8")), []);
 });

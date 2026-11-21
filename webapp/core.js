@@ -121,10 +121,12 @@
 
   // ---------- навигация ----------
   Z.go = async function go(tab) {
+    if (state.leaveTab) { try { state.leaveTab(); } catch (e) { /* разбор вкладки не должен ломать переход */ } state.leaveTab = null; }
     state.tab = tab;
     document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     Z.syncHeader();
     const render = Z.views[tab];
+    if (!render) { Z.showError(new Error("Нет такой вкладки.")); return; }
     Z.showLoader();
     try { await render(); }
     catch (e) { if (state.tab === tab) Z.showError(e, () => Z.go(tab)); }

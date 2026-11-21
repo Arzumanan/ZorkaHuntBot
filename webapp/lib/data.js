@@ -1,20 +1,22 @@
-/* Данные пользователя поверх хранилища (storage.js): настройки, угодья, чек-лист, журнал, перенос из старой базы.
+/* Данные пользователя поверх хранилища (storage.js): настройки, угодья, чек-лист, журнал, метки, перенос из старой базы.
    Ключи хранилища (все ≤ 128 символов, [A-Za-z0-9_-]):
      meta            {region, tz, hunt, loc}                      — регион, часовой пояс, вид охоты, текущее место
      places          {seq, def, list:[{id,name,lat,lon}]}         — угодья
+     marks           {seq, list:[{id,t,n,o,lat,lon}]}             — метки навигатора (тип, имя, заметка, координаты)
      ck_<вид>        {seq, checked:[ключи шаблона], custom:[{id,cat,text,checked}]} — чек-лист по виду охоты
      j_<ГГГГММДД>_<id>  {d,p,s,n}                                — одна запись журнала в одном ключе
      mig             {state, at}                                  — перенос из старой базы (imported | done | skipped) */
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
   const need = (n) => (node ? require("./" + n + ".js") : root.ZL[n]);
-  const api = factory(need("dates"), need("checklist"));
+  const api = factory(need("dates"), need("checklist"), need("nav"));
   if (node) module.exports = api; else { root.ZL = root.ZL || {}; root.ZL.data = api; }
-})(typeof self !== "undefined" ? self : this, function (D, CL) {
+})(typeof self !== "undefined" ? self : this, function (D, CL, N) {
   "use strict";
   const LIMITS = {
     ITEM_MAX: 100, PLACE_NAME_MAX: 60, MAX_PLACES: 30, MAX_CUSTOM_ITEMS: 100, CITY_MAX: 80,
     PLACE_MAX: 200, SPECIES_MAX: 100, NOTE_MAX: 500, JOURNAL_LIMIT: 500, MAX_RECORDS: 900,
+    MAX_MARKS: N.MAX_MARKS, MARK_NAME_MAX: N.NAME_MAX, MARK_NOTE_MAX: N.NOTE_MAX,
   };
   const TIMEZONES = [
     ["Europe/Kaliningrad", "Калининград (UTC+2)"], ["Europe/Moscow", "Москва, Краснодар, Майкоп (UTC+3)"],
@@ -283,6 +285,54 @@
       return report;
     });
 
+
+    // ---------- метки навигатора ----------
+    const markJson = (m) => N.markPublic(m);
+    async function getMarksRaw() {
+      const r = (await store.get("marks")) || {};
+      return { seq: r.seq || 0, list: Array.isArray(r.list) ? r.list : [] };
+    }
+    async function listMarks() {
+      return (await getMarksRaw()).list.map((raw) => N.unpackMark(raw)).filter(Boolean).map(markJson);
+    }
+    const addMark = (input) => locked(async () => {
+      const rec = N.normalizeMark(input);
+      if (rec.error) fail(400, rec.error, rec.message);
+      const raw = await getMarksRaw();
+      if (raw.list.length >= LIMITS.MAX_MARKS) fail(400, "too_many", `Можно сохранить не больше ${LIMITS.MAX_MARKS} меток.`);
+      const id = raw.seq + 1;
+      raw.seq = id;
+      raw.list.push(N.packMark(id, rec));
+      await store.put("marks", raw);
+      return markJson(N.unpackMark(raw.list[raw.list.length - 1]));
+    });
+    const updateMark = (id, input) => locked(async () => {
+      const mid = N.parseMarkId(id);
+      const raw = await getMarksRaw();
+      const i = mid == null ? -1 : raw.list.findIndex((x) => x.id === mid);
+      if (i < 0) fail(404, "not_found", "Метка не найдена.");
+      const prev = N.unpackMark(raw.list[i]);
+      const rec = N.normalizeMark({
+        type: input.type != null ? input.type : prev.type,
+        name: input.name != null ? input.name : prev.name,
+        note: input.note != null ? input.note : prev.note,
+        lat: input.lat != null ? input.lat : prev.lat,
+        lon: input.lon != null ? input.lon : prev.lon,
+      });
+      if (rec.error) fail(400, rec.error, rec.message);
+      raw.list[i] = N.packMark(mid, rec);
+      await store.put("marks", raw);
+      return markJson(N.unpackMark(raw.list[i]));
+    });
+    const deleteMark = (id) => locked(async () => {
+      const mid = N.parseMarkId(id);
+      const raw = await getMarksRaw();
+      const i = mid == null ? -1 : raw.list.findIndex((x) => x.id === mid);
+      if (i < 0) fail(404, "not_found", "Метка не найдена.");
+      raw.list.splice(i, 1);
+      await store.put("marks", raw);
+    });
+
     // ---------- перенос: состояние ----------
     const getMigration = () => store.get("mig");
     const setMigration = (state) => locked(() => store.put("mig", { state, at: now().toISOString() }));
@@ -295,7 +345,8 @@
       return removed;
     });
 
-    return { LIMITS, TIMEZONES, AUTO_TZ, getMeta, patchMeta, today, listPlaces, addPlace, updatePlace, deletePlace, checklistPayload,
+    return { LIMITS, TIMEZONES, AUTO_TZ, getMeta, patchMeta, today, listPlaces, addPlace, updatePlace, deletePlace,
+      listMarks, addMark, updateMark, deleteMark, checklistPayload,
       setHuntType, toggleItem, addCustomItem, deleteCustomItem, resetChecks, allRecords, addRecord, deleteRecord, importLegacy,
       getMigration, setMigration, deleteAll };
   }
