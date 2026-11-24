@@ -266,6 +266,103 @@
 
   const shouldFallbackFromTelegram = (info) => info && info.code !== "geo_denied";
 
+  // ---------- поделиться меткой (глубокая ссылка Mini App, без сервера) ----------
+  // Ссылка главного Mini App: https://t.me/ZorkaHuntBot?startapp=<payload>
+  // (короткого имени приложения в BotFather в репозитории нет). startapp: [A-Za-z0-9_-], до 512 символов.
+  const SHARE_BOT = "ZorkaHuntBot";
+  const SHARE_PREFIX = "m1_";
+  const STARTAPP_MAX = 512;
+  const STARTAPP_RE = /^[A-Za-z0-9_-]{1,512}$/;
+
+  function utf8ToB64url(str) {
+    if (typeof Buffer !== "undefined" && typeof Buffer.from === "function") {
+      return Buffer.from(str, "utf8").toString("base64url");
+    }
+    const bytes = new TextEncoder().encode(str);
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+  function b64urlToUtf8(param) {
+    if (typeof param !== "string" || !/^[A-Za-z0-9_-]+$/.test(param)) return null;
+    try {
+      if (typeof Buffer !== "undefined" && typeof Buffer.from === "function") {
+        return Buffer.from(param, "base64url").toString("utf8");
+      }
+      const pad = param.length % 4 === 0 ? "" : "=".repeat(4 - (param.length % 4));
+      const b64 = param.replace(/-/g, "+").replace(/_/g, "/") + pad;
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new TextDecoder().decode(bytes);
+    } catch (e) { return null; }
+  }
+  function shrinkText(s) {
+    const chars = [...s];
+    if (!chars.length) return "";
+    const drop = Math.max(1, Math.ceil(chars.length * 0.15));
+    return chars.slice(0, Math.max(0, chars.length - drop)).join("");
+  }
+  /** Кодирует метку в startapp-параметр. Длинную заметку укорачивает, чтобы уложиться в 512. */
+  function encodeShareMark(input) {
+    const rec = normalizeMark(input);
+    if (rec.error) return rec;
+    let name = rec.name, note = rec.note, param = "";
+    for (let i = 0; i < 80; i++) {
+      param = SHARE_PREFIX + utf8ToB64url(JSON.stringify([1, rec.type, name, note, rec.lat, rec.lon]));
+      if (param.length <= STARTAPP_MAX && STARTAPP_RE.test(param)) {
+        const link = "https://t.me/" + SHARE_BOT + "?startapp=" + param;
+        return { type: rec.type, name, note, lat: rec.lat, lon: rec.lon, param, link };
+      }
+      if (note) { note = shrinkText(note); continue; }
+      if ([...name].length > 1) { name = shrinkText(name) || name[0]; continue; }
+      break;
+    }
+    return { error: "too_long", message: "Слишком длинные данные метки, чтобы поделиться." };
+  }
+  /** Разбор startapp. Любая ошибка или лишние данные — null (метку не показываем). */
+  function decodeShareParam(param) {
+    if (typeof param !== "string" || !STARTAPP_RE.test(param) || !param.startsWith(SHARE_PREFIX)) return null;
+    const raw = b64urlToUtf8(param.slice(SHARE_PREFIX.length));
+    if (!raw) return null;
+    let data;
+    try { data = JSON.parse(raw); } catch (e) { return null; }
+    if (!Array.isArray(data) || data.length !== 6 || data[0] !== 1) return null;
+    if (typeof data[1] !== "string" || typeof data[2] !== "string" || typeof data[3] !== "string") return null;
+    if (typeof data[4] !== "number" || typeof data[5] !== "number") return null;
+    const rec = normalizeMark({ type: data[1], name: data[2], note: data[3], lat: data[4], lon: data[5] });
+    return rec.error ? null : rec;
+  }
+  function readStartParam(src) {
+    const s = src || {};
+    if (typeof s.start_param === "string" && s.start_param) return s.start_param;
+    const pick = (qs) => {
+      if (!qs || typeof qs !== "string") return "";
+      try {
+        const q = qs.charAt(0) === "?" || qs.charAt(0) === "#" ? qs.slice(1) : qs;
+        const p = new URLSearchParams(q);
+        return p.get("tgWebAppStartParam") || p.get("startapp") || "";
+      } catch (e) { return ""; }
+    };
+    return pick(s.search) || pick(s.hash) || "";
+  }
+  function findDuplicateMark(list, rec) {
+    if (!rec) return null;
+    const lat = roundCoord(rec.lat), lon = roundCoord(rec.lon);
+    return (list || []).find((m) => m && m.type === rec.type && roundCoord(m.lat) === lat && roundCoord(m.lon) === lon) || null;
+  }
+  function shareText(rec) {
+    const name = rec && rec.name ? rec.name : "метка";
+    const lat = Number(rec.lat).toFixed(6), lon = Number(rec.lon).toFixed(6);
+    return "Метка «" + name + "» — открой в Зорьке\n" + lat + ", " + lon +
+      "\nЯндекс: https://yandex.ru/maps/?pt=" + lon + "," + lat + "&z=16" +
+      "\nGoogle: https://maps.google.com/?q=" + lat + "," + lon;
+  }
+  function telegramShareUrl(enc) {
+    if (!enc || !enc.link) return "";
+    return "https://t.me/share/url?url=" + encodeURIComponent(enc.link) + "&text=" + encodeURIComponent(shareText(enc));
+  }
+
   return {
     EARTH_M, COORD_DECIMALS, MAX_MARKS, NAME_MAX, NOTE_MAX, CALM_MS, MARK_TYPES, TYPE_BY,
     compassShort, compassTo, compassFrom, distance, bearing, relativeBearing, formatDistance, formatAzimuth,
@@ -273,5 +370,7 @@
     packMark, unpackMark, markPublic, defaultNavTarget, parseMarkId, headingFromOrientation, norm360,
     GEO_TEXT, describeGeoError, classifyGeoRaw, shouldFallbackFromTelegram,
     marksKey, uniqueMarks, targetOptionLabels, geoDecision,
+    SHARE_BOT, SHARE_PREFIX, STARTAPP_MAX, encodeShareMark, decodeShareParam, readStartParam,
+    findDuplicateMark, shareText, telegramShareUrl,
   };
 });

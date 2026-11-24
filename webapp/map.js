@@ -430,6 +430,7 @@
       mk.bindPopup(() => popupNode(m.emoji + " " + m.name, [m.type_name, m.note], [
         h("button", { class: "btn", onclick: () => { session.targetId = m.id; map.closePopup(); refreshPanel(); drawNavLine(); } }, "Вернуться"),
         h("button", { class: "btn secondary", onclick: () => { map.closePopup(); openForm(m); } }, "Изменить"),
+        h("button", { class: "btn secondary", onclick: () => shareMark(m) }, "Поделиться"),
       ]));
       mk.addTo(markLayer);
     }
@@ -698,6 +699,7 @@
         h("div", { class: "place-actions" },
           h("button", { class: "icon-btn", title: "Вернуться", "aria-label": "Вернуться к метке", onclick: () => { session.targetId = m.id; closeSheet(); if (map) map.setView([m.lat, m.lon], Math.max(map.getZoom(), 14)); refreshPanel(); drawNavLine(); } }, "➤"),
           h("button", { class: "icon-btn", title: "Изменить", "aria-label": "Изменить", onclick: () => openForm(m) }, "✎"),
+          h("button", { class: "icon-btn", title: "Поделиться", "aria-label": "Поделиться меткой", onclick: () => shareMark(m) }, "📤"),
           h("button", { class: "icon-btn del", title: "Удалить", "aria-label": "Удалить", onclick: async () => {
             if (!(await Z.confirm("Удалить метку «" + m.name + "»?"))) return;
             try { await Z.post("/marks/delete", { id: m.id }); Z.haptic.tap(); await reloadMarks(); openList(); }
@@ -854,6 +856,7 @@
     clearTimeout(windTimer);
     if (session.stopLoc) { session.stopLoc(); session.stopLoc = null; }
     if (session.stopHdg) { session.stopHdg(); session.stopHdg = null; }
+    dismissSharedPreview(false);
     if (map) { map.remove(); map = null; }
     meMarker = meCircle = targetLine = markLayer = placeLayer = windLayer = boundsLayer = null;
     boundsLoading = null;
@@ -917,6 +920,64 @@
       showBanner(null);
     }, (e) => showBanner(e));
     session.stopHdg = startHeading((deg) => { session.heading = deg; updateNavLive(); });
-    map.whenReady(() => setTimeout(() => { if (map) map.invalidateSize(); }, 80));
+    map.whenReady(() => setTimeout(() => {
+      if (map) map.invalidateSize();
+      if (Z.state.sharedMark) showSharedPreview(Z.state.sharedMark);
+    }, 80));
   };
+
+  let shareMarker = null, sharePreviewEl = null;
+  function shareMark(m) {
+    const enc = N.encodeShareMark(m);
+    if (enc.error) { Z.toast(enc.message, true); return; }
+    const url = N.telegramShareUrl(enc);
+    const tg = Z.tg;
+    try {
+      if (tg && typeof tg.openTelegramLink === "function") tg.openTelegramLink(url);
+      else if (tg && typeof tg.openLink === "function") tg.openLink(url);
+      else window.open(url, "_blank");
+      Z.haptic.tap();
+    } catch (e) { Z.toast("Не удалось открыть окно отправки.", true); }
+  }
+  function dismissSharedPreview(clearState) {
+    if (shareMarker && map) { try { map.removeLayer(shareMarker); } catch (e) { /* карта уже снята */ } }
+    shareMarker = null;
+    if (sharePreviewEl && sharePreviewEl.parentNode) sharePreviewEl.parentNode.removeChild(sharePreviewEl);
+    sharePreviewEl = null;
+    if (panelEl) panelEl.classList.remove("hidden");
+    if (clearState !== false) Z.state.sharedMark = null;
+  }
+  function showSharedPreview(rec) {
+    if (!map || !rec) return;
+    closeSheet();
+    dismissSharedPreview(false);
+    const pub = N.markPublic(Object.assign({ id: 0, key: "shared" }, rec));
+    map.setView([rec.lat, rec.lon], Math.max(map.getZoom() || 0, 15));
+    shareMarker = L.marker([rec.lat, rec.lon], { icon: emojiIcon(pub.emoji), zIndexOffset: 1200, title: pub.name }).addTo(map);
+    if (panelEl) panelEl.classList.add("hidden");
+    const already = N.findDuplicateMark(marksCache, rec);
+    const save = async () => {
+      if (already) { Z.toast("Эта метка уже есть в вашем списке."); dismissSharedPreview(); return; }
+      try {
+        await Z.post("/marks", { type: rec.type, name: rec.name, note: rec.note, lat: rec.lat, lon: rec.lon });
+        Z.haptic.ok();
+        dismissSharedPreview();
+        await reloadMarks();
+        Z.toast("Метка сохранена");
+      } catch (e) { Z.toast(e.message, true); }
+    };
+    sharePreviewEl = h("div", { class: "map-share-preview", role: "dialog", "aria-label": "Вам поделились меткой" },
+      h("h3", {}, "Вам поделились меткой"),
+      h("div", { class: "share-preview-title" }, pub.emoji + " " + pub.name),
+      h("div", { class: "muted" }, pub.type_name + " · " + rec.lat.toFixed(6) + ", " + rec.lon.toFixed(6)),
+      rec.note ? h("div", { class: "rec-note" }, rec.note) : null,
+      already ? h("div", { class: "muted" }, "Эта метка уже есть в вашем списке.") : null,
+      h("div", { class: "row share-preview-actions" },
+        already
+          ? h("button", { class: "btn", onclick: () => dismissSharedPreview() }, "Понятно")
+          : h("button", { class: "btn", onclick: save }, "Сохранить в мои метки"),
+        h("button", { class: "btn secondary", onclick: () => dismissSharedPreview() }, "Отмена")));
+    const root = document.getElementById("map-root");
+    if (root) root.append(sharePreviewEl);
+  }
 })();

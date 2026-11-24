@@ -269,3 +269,15 @@ body.map-open #view { margin-bottom: calc(74px + env(safe-area-inset-bottom, 0px
   border-radius: 16px;
 }
 .leaflet-bar { border: none !important; }
+
+.map-share-preview {
+  background: linear-gradient(180deg, rgba(36, 22, 44, .92), rgba(18, 14, 36, .95));
+  border: 1px solid rgba(255, 180, 100, .28);
+  box-shadow: 0 14px 36px rgba(10, 6, 20, .5);
+  backdrop-filter: blur(18px) saturate(1.15);
+  border-radius: 22px;
+  padding: 16px 16px 18px;
+}
+.map-share-preview h3 { color: #ffe7c2; font-size: 18px; }
+.share-preview-title { color: #fff6ea; }
+.place-actions .icon-btn { min-width: 40px; }

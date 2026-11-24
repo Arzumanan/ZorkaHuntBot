@@ -25,7 +25,14 @@
       }
       await Z.loadMe();
     } catch (e) { return Z.showError(e, init); }
-    const start = new URLSearchParams(location.search).get("tab");     // ?tab=checklist — удобно для проверки
+    const startParam = ZL.nav.readStartParam({
+      start_param: Z.tg && Z.tg.initDataUnsafe && Z.tg.initDataUnsafe.start_param,
+      search: location.search,
+      hash: location.hash,
+    });
+    const shared = ZL.nav.decodeShareParam(startParam);
+    if (shared) Z.state.sharedMark = shared;
+    const start = new URLSearchParams(location.search).get("tab") || (shared ? "map" : "");     // ?tab=checklist — удобно для проверки
     Z.go(Z.views[start] ? start : "weather");
   }
   init();

@@ -47,7 +47,7 @@ test("код обращается к /api только в разовом пер�
   }
   const external = new Set();
   for (const f of jsFiles) for (const m of fs.readFileSync(f, "utf8").matchAll(/https?:\/\/[a-z0-9.-]+/gi)) external.add(m[0]);
-  const allowed = ["https://api.open-meteo.com", "https://geocoding-api.open-meteo.com", "https://open-meteo.com", "https://t.me", "https://telegram.org", "http://www.w3.org", "http://local", "https://tile.openstreetmap.org", "https://www.openstreetmap.org", "https://openstreetmap.org", "https://server.arcgisonline.com", "https://opentopomap.org", "https://a.tile.opentopomap.org"];   // w3.org — SVG; http://local — разбор пути; тайлы и атрибуция карты
+  const allowed = ["https://api.open-meteo.com", "https://geocoding-api.open-meteo.com", "https://open-meteo.com", "https://t.me", "https://telegram.org", "http://www.w3.org", "http://local", "https://tile.openstreetmap.org", "https://www.openstreetmap.org", "https://openstreetmap.org", "https://server.arcgisonline.com", "https://opentopomap.org", "https://a.tile.opentopomap.org", "https://yandex.ru", "https://maps.google.com"];   // w3.org — SVG; http://local — разбор пути; тайлы и атрибуция карты; яндекс/google — ссылки при шаринге метки
   for (const u of external) assert.ok(allowed.some((a) => u.startsWith(a)), "посторонний адрес в коде: " + u);
 });
 

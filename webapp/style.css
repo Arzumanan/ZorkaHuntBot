@@ -208,3 +208,12 @@ body.map-open #view { padding: 0; overflow: hidden; overscroll-behavior: none; m
 .map-swatch-oopt { background: rgba(106,27,154,.28); border: 2px solid #6a1b9a; }
 .map-swatch-excluded { border: 2px dashed #b71c1c; background:
   repeating-linear-gradient(-45deg, rgba(229,57,53,.35), rgba(229,57,53,.35) 3px, rgba(229,57,53,.08) 3px, rgba(229,57,53,.08) 7px); }
+
+.place-actions { flex-wrap: wrap; justify-content: flex-end; }
+.map-share-preview { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 550;
+  background: var(--bg); color: var(--text); border-radius: 16px; padding: 14px 14px 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.28); max-height: 48%; overflow: auto; }
+.map-share-preview h3 { margin: 0 0 8px; }
+.share-preview-title { font-weight: 700; font-size: 16px; margin: 2px 0 4px; }
+.share-preview-actions { margin-top: 12px; gap: 8px; flex-direction: column; }
+.share-preview-actions .btn { width: 100%; text-align: center; }
