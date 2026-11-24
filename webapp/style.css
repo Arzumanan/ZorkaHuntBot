@@ -20,7 +20,8 @@ header { display: flex; align-items: center; gap: 8px; padding: 10px 12px 4px; f
 select, input[type=text], input[type=date], input[type=time], textarea { font: inherit; color: var(--text); background: var(--card); border: 0;
   border-radius: 10px; padding: 8px 10px; max-width: 55%; }
 input[type=text], input[type=date], input[type=time], textarea { width: 100%; max-width: none; }
-.icon-btn { border: 0; background: var(--card); border-radius: 10px; padding: 6px 9px; font-size: 16px; }
+.icon-btn { border: 0; background: var(--card); border-radius: 10px; padding: 6px 9px; font-size: 16px;
+  display: inline-flex; align-items: center; justify-content: center; }
 main#view, main { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch; padding: 6px 12px; padding-bottom: calc(40px + 72px + env(safe-area-inset-bottom, 0px)); }
 .loader, .empty { text-align: center; color: var(--hint); padding: 40px 12px; }
@@ -186,7 +187,8 @@ body.map-open #view { padding: 0; overflow: hidden; overscroll-behavior: none; m
 .map-sheet-close { position: absolute; top: 8px; right: 8px; }
 .map-pop { min-width: 160px; }
 .map-pop-btns { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-.map-pop-btns .btn { padding: 6px 10px; font-size: 13px; }
+.map-pop-btns .btn { padding: 6px 10px; font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .leaflet-container { font: inherit; background: #cfd6c8; }
 .leaflet-top.leaflet-left { z-index: 650; }
 .map-layer-menu { max-width: min(240px, calc(100% - 70px)); }
@@ -217,3 +219,6 @@ body.map-open #view { padding: 0; overflow: hidden; overscroll-behavior: none; m
 .share-preview-title { font-weight: 700; font-size: 16px; margin: 2px 0 4px; }
 .share-preview-actions { margin-top: 12px; gap: 8px; flex-direction: column; }
 .share-preview-actions .btn { width: 100%; text-align: center; }
+
+.btn-ico { width: 18px; height: 18px; display: block; flex: none; }
+.map-pop-btns .btn-ico { width: 16px; height: 16px; }

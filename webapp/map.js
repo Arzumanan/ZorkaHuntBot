@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   const N = ZL.nav;
-  const { h } = Z;
+  const { h, s } = Z;
   const VERSION = ((document.currentScript && document.currentScript.src) || "").split("?")[1] || "";
   const qs = VERSION ? "?" + VERSION : "";
   const HOME = { lat: 44.82, lon: 39.54, zoom: 8 };     // середина между Краснодаром и Майкопом
@@ -415,6 +415,20 @@
     return group;
   }
 
+
+  function btnIco(...children) {
+    return s("svg", { class: "btn-ico", viewBox: "0 0 24 24", width: "18", height: "18", "aria-hidden": "true", focusable: "false" }, ...children);
+  }
+  // Стрелка «отправить», как в Telegram — не путать с кнопкой «Вернуться».
+  function shareIcon() {
+    // Силуэт бумажного самолётика остриём вверх-вправо, как «отправить» в Telegram.
+    return btnIco(s("path", { fill: "currentColor", d: "M20.6 3.2 14.1 20.6 10.7 12.9 3.3 9.5z" }));
+  }
+  // Навигационный указатель к метке.
+  function navIcon() {
+    return btnIco(s("path", { fill: "currentColor", d: "M12 3 5.1 20.05l.8.35L12 17.4l6.1 3 .8-.35z" }));
+  }
+
   // ---------- отрисовка меток, угодий, ветра, себя ----------
   function popupNode(title, lines, buttons) {
     const box = h("div", { class: "map-pop" }, h("b", {}, title),
@@ -428,9 +442,9 @@
     for (const m of marks) {
       const mk = L.marker([m.lat, m.lon], { icon: emojiIcon(m.emoji), title: m.name, riseOnHover: true });
       mk.bindPopup(() => popupNode(m.emoji + " " + m.name, [m.type_name, m.note], [
-        h("button", { class: "btn", onclick: () => { session.targetId = m.id; map.closePopup(); refreshPanel(); drawNavLine(); } }, "Вернуться"),
-        h("button", { class: "btn secondary", onclick: () => { map.closePopup(); openForm(m); } }, "Изменить"),
-        h("button", { class: "btn secondary", onclick: () => shareMark(m) }, "Поделиться"),
+        h("button", { class: "btn", type: "button", title: "Вернуться", "aria-label": "Вернуться к метке", onclick: () => { session.targetId = m.id; map.closePopup(); refreshPanel(); drawNavLine(); } }, navIcon(), "Вернуться"),
+        h("button", { class: "btn secondary", type: "button", onclick: () => { map.closePopup(); openForm(m); } }, "Изменить"),
+        h("button", { class: "btn secondary", type: "button", title: "Поделиться", "aria-label": "Поделиться", onclick: () => shareMark(m) }, shareIcon(), "Поделиться"),
       ]));
       mk.addTo(markLayer);
     }
@@ -697,9 +711,9 @@
           h("b", {}, m.emoji + " " + m.name),
           h("div", { class: "muted" }, m.type_name + (d ? " · " + d : ""))),
         h("div", { class: "place-actions" },
-          h("button", { class: "icon-btn", title: "Вернуться", "aria-label": "Вернуться к метке", onclick: () => { session.targetId = m.id; closeSheet(); if (map) map.setView([m.lat, m.lon], Math.max(map.getZoom(), 14)); refreshPanel(); drawNavLine(); } }, "➤"),
+          h("button", { class: "icon-btn", title: "Вернуться", "aria-label": "Вернуться к метке", onclick: () => { session.targetId = m.id; closeSheet(); if (map) map.setView([m.lat, m.lon], Math.max(map.getZoom(), 14)); refreshPanel(); drawNavLine(); } }, navIcon()),
           h("button", { class: "icon-btn", title: "Изменить", "aria-label": "Изменить", onclick: () => openForm(m) }, "✎"),
-          h("button", { class: "icon-btn", title: "Поделиться", "aria-label": "Поделиться меткой", onclick: () => shareMark(m) }, "📤"),
+          h("button", { class: "icon-btn", title: "Поделиться", "aria-label": "Поделиться", onclick: () => shareMark(m) }, shareIcon()),
           h("button", { class: "icon-btn del", title: "Удалить", "aria-label": "Удалить", onclick: async () => {
             if (!(await Z.confirm("Удалить метку «" + m.name + "»?"))) return;
             try { await Z.post("/marks/delete", { id: m.id }); Z.haptic.tap(); await reloadMarks(); openList(); }
